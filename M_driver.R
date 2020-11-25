@@ -29,13 +29,11 @@ mono_reg <- function (formula = .~., diagonal = TRUE) {
   # @fit: A function(x,y,w) returning an object of class "FLXcomponent"
   #TODO inputs are x = covariates, y = DV, w = weights. Must have specification of covars with monotone relationship
   retval@fit <- function(x, y, w, ...) {
-                  para <- cov.wt(y, wt = w)[c("center", "cov")] 
-                  df <- (3 * ncol(y) + ncol(y)^2)/2
-                  if (diagonal) {
-                    para$cov <- diag(diag(para$cov)) 
-                    df <- 2 * ncol(y)
-                  }
-                  retval@defineComponent(c(para, df = df)) }
+                  fit <- part_mon(x, y, w, ...)
+                  
+                  df <- some_number
+                  
+                  retval@defineComponent(c(para, fitted_pava, df = df)) }
   retval }
 
 
