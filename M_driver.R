@@ -1,5 +1,5 @@
 
-# definition of monotone regression model
+# definition of monotone regression model.
 
 mono_reg <- function (formula = .~., diagonal = TRUE) {
   retval <- new("FLXMC", weighted = TRUE,
