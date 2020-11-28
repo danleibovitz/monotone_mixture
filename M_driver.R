@@ -18,7 +18,7 @@ mono_reg <- function (formula = .~., diagonal = TRUE) {
                   # @predict: A function(x) predicting y given x. 
                   # TODO x must be partitioned into linear and monotone covars
                   predict <- function(x, x_mon) {
-                    p <- (x %*% para$coef) + fitted_pava$h(x_mon)
+                    p <- (x %*% para$coef) + get_pred(fitted_pava, x_mon)
                     p
                   }
                   new("FLXcomponent", parameters =
@@ -29,19 +29,21 @@ mono_reg <- function (formula = .~., diagonal = TRUE) {
   # @fit: A function(x,y,w) returning an object of class "FLXcomponent"
   #TODO inputs are x = covariates, y = DV, w = weights. Must have specification of covars with monotone relationship
   retval@fit <- function(x, y, w, ...) {
-                  fit <- part_mon(x, y, w, ...)
+                  fit <- part_fit(x, y, w, ...)
                   
                   df <- some_number
                   
-                  retval@defineComponent(c(para, fitted_pava, df = df)) }
-  retval }
+                  retval@defineComponent(fit$para, fit$fitted_pava, df = df, ...) 
+                  }
+  retval 
+  }
 
 
 
 y <- (1:20) + rnorm(20, sd = 3)
 ystar <- pava(y, long.out = T, stepfun = T)
 plot(y)
-lines(ystar,type='s')
+lines(ystar$y,type='s')
 # Decreasing order:
 z <- NULL
 for(i in 4:8) {
