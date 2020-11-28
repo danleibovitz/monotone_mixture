@@ -1,7 +1,8 @@
 # define fitting function for partial linear model with 1 monotone-related variable
 
 
-# first, definte function for obtaining f(x_new) for monotone regression f()
+# first, define function for obtaining f(x_new) for monotone regression f()
+# TODO vectorize get_pred to accept vector arguments for xval
 get_pred <- function(mr_obj, xval){
   if(xval < mr_obj$x[1]){ # xval is lower than PAVA range
     yval <- mr_obj$yf[1]
@@ -19,7 +20,13 @@ get_pred <- function(mr_obj, xval){
 }
 
 
-part_fit <- function(x, y, w, ...){
+# define partial linear regression of y on x with weights w
+part_fit <- function(x, y, wates, ...){
+  
+  # cast x, y and wates to matrices
+  x <- as.matrix(x)
+  y <- as.matrix(y)
+  wates <- as.matrix(wates)
   
   # assume that monotone variable is first column in x, unless specified otherwise
   dotarg = list(...)
@@ -29,18 +36,53 @@ part_fit <- function(x, y, w, ...){
   else{
     ind <- 1
   }
+  # TODO option for monotonic decreasing regression
   
-  # for starting values, fit a regular lm
-  fit <- lm.wfit(x=x, y=y, w=w)
+  # throw error if the number of indices exceeds columns of x
+  if(length(ind) > ncol(x)) stop("Number of proposed monotonic relationships exceeds columns of x.")
   
-  # iterate between linar model and pava
-  # TODO set while loop condition(s)
-  while(TRUE){
-    yhat <- pava( (y - x[-ind] %*% coef(fit)[-ind]), long.out = T, stepfun = T)
+  # TODO option for fit with no linear independent components
+  if(length(ind) == ncol(x)){
     
-    
+    # TODO how does return object need to be formatted?
+    return(mod)
   }
   
+  # for starting values, fit a regular lm
+  fit <- lm.wfit(x=x, y=y, w=wates)
+  betas <- coef(fit)[-ind]
+
+  # set maximum iterations for convergence
+  if("max_iter" %in% names(dotarg)){
+    if(max_iter < 1) stop("max_iter must be positive")
+    maxiter <- max_iter
+  }
+  else{ 
+    maxiter <- 100
+  }
+    
+  # iterate between pava and linear model
+  # TODO set while loop condition(s). Get appropriate measure of coefficient change
+  iter <- 0
+  delta <- 10
+  while(delta > 1 & iter < maxiter){
+    yhat <- pava( (y - x[-ind] %*% betas), long.out = T, stepfun = T)
+    
+    yhat <- monoreg(x = x[ind], y = (y - x[-ind] %*% betas), w = wates[ind])
+    
+    old_betas <- betas    # save old betas for distance calculation
+    #TODO how to get monoreg sorted values?
+    betas <- coef(lm.wfit(x=x[-ind], y= (y - yhat$sorted_vals), w=wates[-ind]))
+    
+    # TODO quantify change in yhat vals and beta vals
+    # get euclidian distance
+    delta <- dist(rbind(as.vector(betas), as.vector(old_betas)))
+
+    iter <- iter + 1    # iterate maxiter
+  }
+  
+  # TODO how does return object need to be formatted?
+  return(mod)
 }
 
 
@@ -80,3 +122,6 @@ ystar <- pava(y, long.out = T, stepfun = T)
 plot(y)
 lines(ystar$y,type='s')
 ystar$h(10)
+
+
+
