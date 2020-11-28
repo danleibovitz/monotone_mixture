@@ -3,6 +3,7 @@
 
 # first, define function for obtaining f(x_new) for monotone regression f()
 # TODO vectorize get_pred to accept vector arguments for xval
+# TODO enable mr_obj to hold multiple monoreg fits
 get_pred <- function(mr_obj, xval){
   if(xval < mr_obj$x[1]){ # xval is lower than PAVA range
     yval <- mr_obj$yf[1]
@@ -42,8 +43,13 @@ part_fit <- function(x, y, wates, ...){
   if(length(ind) > ncol(x)) stop("Number of proposed monotonic relationships exceeds columns of x.")
   
   # TODO option for fit with no linear independent components
+  # TODO option for fit with no linear independent components and multiple monotone components
   if(length(ind) == ncol(x)){
     
+    yhat <- monoreg(x = x[ind], y = y, w = wates[ind])
+    
+    mod$para <- NULL
+    mod$fitted_pava <- yhat
     # TODO how does return object need to be formatted?
     return(mod)
   }
@@ -66,7 +72,7 @@ part_fit <- function(x, y, wates, ...){
   iter <- 0
   delta <- 10
   while(delta > 1 & iter < maxiter){
-    yhat <- pava( (y - x[-ind] %*% betas), long.out = T, stepfun = T)
+    # yhat <- pava( (y - x[-ind] %*% betas), long.out = T, stepfun = T)
     
     yhat <- monoreg(x = x[ind], y = (y - x[-ind] %*% betas), w = wates[ind])
     
@@ -82,6 +88,10 @@ part_fit <- function(x, y, wates, ...){
   }
   
   # TODO how does return object need to be formatted?
+  # mod must have coefficients attribute and monoreg fit attribute
+  mod$para <- betas
+  mod$fitted_pava <- yhat
+  
   return(mod)
 }
 
