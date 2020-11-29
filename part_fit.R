@@ -112,42 +112,5 @@ part_fit <- function(x, y, wates, ...){
 
 
 
-# Example 1.1.1. (dental study) from Robertson, Wright and Dykstra (1988)
-age = c(14, 13, 7, 8, 8, 9, 10, 10, 11, 11.5, 12)
-size = c(23.5, 25, 21, 23.5, 23, 24, 21, 25, 21.5, 22, 19)
-weights = c(0.8, 0.14, 0.5, 1, 1, 0.2, 1, 1, 0.9, 0.5, 0.5)
-mr = monoreg(age, size, w = weights)
-
-# sorted x values
-mr$x # 8 10 12 14
-# weights and merged y values
-mr$w  # 3 3 3 2
-mr$y #  22.50000 23.33333 20.83333 24.25000
-# fitted y values
-mr$yf # 22.22222 22.22222 22.22222 24.25000
-fitted(mr)
-var(residuals(mr))
-mr$sd <- var(residuals(mr))
-mr$sd
-
-y[match(x, fx)]
-mr$yf[match(age, mr$x)]
-
-
-plot(mr)  # this shows the averaged data points
-points(age, size, pch=2)  # add original data points
-
-y <- (1:10) + rnorm(10, sd = 3)
-x <- 1:10 
-
-mr <- monoreg(x, y)
-plot(mr)
-points(x, y, pch=2)  # add original data points
-
-ystar <- pava(y, long.out = T, stepfun = T)
-plot(y)
-lines(ystar$y,type='s')
-ystar$h(10)
-
 
 
