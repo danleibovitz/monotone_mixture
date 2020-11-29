@@ -32,7 +32,7 @@ get_pred <- function(mr_obj, xval){
 part_fit <- function(x, y, wates, ...){
   
   # cast x, y and wates to matrices
-  #x <- as.matrix(x)
+  x <- as.matrix(x)
   #y <- as.matrix(y)
   #wates <- as.matrix(wates)
   
@@ -59,8 +59,10 @@ part_fit <- function(x, y, wates, ...){
   # TODO option for fit with no linear independent components and multiple monotone components
   if(length(c(inc_ind, dec_ind)) == ncol(x)){
     
-    yhat <- monoreg(x = x[inc_ind], y = y, w = wates[inc_ind])
+    yhat <- monoreg(x = x[,inc_ind], y = y, w = wates)
     
+    mod <- list(para = NULL, fitted_pava = NULL)
+  
     mod$para <- NULL
     mod$fitted_pava <- yhat
 
@@ -77,7 +79,7 @@ part_fit <- function(x, y, wates, ...){
     maxiter <- max_iter
   }
   else{ 
-    maxiter <- 100
+    maxiter <- 10000
   }
     
   # set while loop initial values
@@ -85,13 +87,13 @@ part_fit <- function(x, y, wates, ...){
   delta <- 10
   # iterate between pava and linear model
   # TODO set while loop condition(s). Get appropriate measure of coefficient change
-  while(delta > 1e-3 & iter < maxiter){
+  while(delta > 1e-7 & iter < maxiter){
 
-    yhat <- monoreg(x = x[inc_ind], y = (y - x[-inc_ind] %*% betas), w = wates[inc_ind])
+    yhat <- monoreg(x = x[,inc_ind], y = (y - x[,-inc_ind] %*% betas), w = wates)
     
     old_betas <- betas    # save old betas for distance calculation
     # to retrieve old ordering of y for fitted values, we use y[match(x, sorted_x)]
-    betas <- coef(lm.wfit(x=x[-inc_ind], y= (y - yhat$yf[match(x[inc_ind], yhat$x)] ), w=wates[-inc_ind]))
+    betas <- coef(lm.wfit(x=x[,-inc_ind], y= (y - yhat$yf[match(x[,inc_ind], yhat$x)] ), w=wates))
     
     # TODO quantify change in yhat vals and beta vals
     # get euclidian distance between betas transformed into unit vectors
@@ -104,16 +106,19 @@ part_fit <- function(x, y, wates, ...){
   
   # TODO how does return object need to be formatted?
   # mod must have coefficients attribute and monoreg fit attribute
+  mod <- list(para = NULL, fitted_pava = NULL, iterations = NULL)
+  
   mod$para <- betas
   mod$fitted_pava <- yhat
+  mod$iterations <- iter
   
   return(mod)
 }
 
 
 X <- cbind(
-  sample(seq(from = -50, to = 50), size = 200, replace = TRUE),
-  sample(seq(from = -100, to = 100), size = 200, replace = TRUE),
+  sample(seq(from = -10, to = 10), size = 200, replace = TRUE),
+  sample(seq(from = -10, to = 10), size = 200, replace = TRUE),
   sample(seq(from = -100, to = 100), size = 200, replace = TRUE),
   sample(seq(from = -100, to = 100), size = 200, replace = TRUE),
   sample(seq(from = -100, to = 100), size = 200, replace = TRUE)
@@ -121,10 +126,11 @@ X <- cbind(
 
 W <- rep(1, 200)
 
-Y <- (X[,1])^3 + 3*X[,2] + 2*X[,3] - 4*X[,4] + X[,5] + rnorm(200, 0, 3)
+Y <- (X[,1])^3 + 1.5*X[,2] - 1.5*X[,3] - 2*X[,4] + X[,5] + rnorm(200, 0, 1000)
 
 pseudo_df <- data.frame(Y, X, W)
 
+model <- part_fit(x = pseudo_df[,2:6], y = pseudo_df$Y, wates = pseudo_df$W)
 
 
 
