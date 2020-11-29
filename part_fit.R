@@ -1,6 +1,13 @@
 # define fitting function for partial linear model with 1 monotone-related variable
 
 
+# TODO define CPAV algorithm for addittive, iterative PAVA
+# TODO replace monoreg() with cpav()
+cpav <- function(){
+  
+}
+
+
 # first, define function for obtaining f(x_new) for monotone regression f()
 # TODO vectorize get_pred to accept vector arguments for xval
 # TODO enable mr_obj to hold multiple monoreg fits
@@ -29,24 +36,30 @@ part_fit <- function(x, y, wates, ...){
   y <- as.matrix(y)
   wates <- as.matrix(wates)
   
-  # assume that monotone variable is first column in x, unless specified otherwise
+  # TODO adapt to include monotonic _decreasing_ regression
+  # assume that monotone variable is first column in x and increasing, unless specified otherwise
   dotarg = list(...)
-  if("mon_index" %in% names(dotarg)){
-    ind <- mon_index
+  if("mon_inc_index" %in% names(dotarg)){
+    inc_ind <- mon_inc_index
   } 
   else{
-    ind <- 1
+    inc_ind <- 1
   }
-  # TODO option for monotonic decreasing regression
+  if("mon_dec_index" %in% names(dotarg)){
+    dec_ind <- mon_dec_index
+  } 
+  else{
+    dec_ind <- NULL
+  }
   
   # throw error if the number of indices exceeds columns of x
-  if(length(ind) > ncol(x)) stop("Number of proposed monotonic relationships exceeds columns of x.")
+  if(length(c(inc_ind, dec_ind)) > ncol(x)) stop("Number of proposed monotonic relationships exceeds columns of x.")
   
   # TODO option for fit with no linear independent components
   # TODO option for fit with no linear independent components and multiple monotone components
-  if(length(ind) == ncol(x)){
+  if(length(c(inc_ind, dec_ind)) == ncol(x)){
     
-    yhat <- monoreg(x = x[ind], y = y, w = wates[ind])
+    yhat <- monoreg(x = x[inc_ind], y = y, w = wates[inc_ind])
     
     mod$para <- NULL
     mod$fitted_pava <- yhat
@@ -56,7 +69,7 @@ part_fit <- function(x, y, wates, ...){
   
   # for starting values, fit a regular lm
   fit <- lm.wfit(x=x, y=y, w=wates)
-  betas <- coef(fit)[-ind]
+  betas <- coef(fit)[-c(inc_ind, dec_ind)]
 
   # set maximum iterations for convergence
   if("max_iter" %in% names(dotarg)){
@@ -71,18 +84,20 @@ part_fit <- function(x, y, wates, ...){
   # TODO set while loop condition(s). Get appropriate measure of coefficient change
   iter <- 0
   delta <- 10
-  while(delta > 1 & iter < maxiter){
-    # yhat <- pava( (y - x[-ind] %*% betas), long.out = T, stepfun = T)
+  while(delta > 1e-3 & iter < maxiter){
+    # yhat <- pava( (y - x[-inc_ind] %*% betas), long.out = T, stepfun = T)
     
-    yhat <- monoreg(x = x[ind], y = (y - x[-ind] %*% betas), w = wates[ind])
+    yhat <- monoreg(x = x[inc_ind], y = (y - x[-inc_ind] %*% betas), w = wates[inc_ind])
     
     old_betas <- betas    # save old betas for distance calculation
     #TODO how to get monoreg sorted values?
-    betas <- coef(lm.wfit(x=x[-ind], y= (y - yhat$sorted_vals), w=wates[-ind]))
+    betas <- coef(lm.wfit(x=x[-inc_ind], y= (y - yhat$sorted_vals), w=wates[-inc_ind]))
     
     # TODO quantify change in yhat vals and beta vals
-    # get euclidian distance
-    delta <- dist(rbind(as.vector(betas), as.vector(old_betas)))
+    # get euclidian distance between betas transformed into unit vectors
+    delta <- dist(rbind( as.vector(betas)/norm(as.vector(betas), type ="2"), 
+                         as.vector(old_betas)/norm(as.vector(old_betas), type="2")
+                         ))
 
     iter <- iter + 1    # iterate maxiter
   }
