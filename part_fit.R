@@ -80,18 +80,18 @@ part_fit <- function(x, y, wates, ...){
     maxiter <- 100
   }
     
-  # iterate between pava and linear model
-  # TODO set while loop condition(s). Get appropriate measure of coefficient change
+  # set while loop initial values
   iter <- 0
   delta <- 10
+  # iterate between pava and linear model
+  # TODO set while loop condition(s). Get appropriate measure of coefficient change
   while(delta > 1e-3 & iter < maxiter){
-    # yhat <- pava( (y - x[-inc_ind] %*% betas), long.out = T, stepfun = T)
-    
+
     yhat <- monoreg(x = x[inc_ind], y = (y - x[-inc_ind] %*% betas), w = wates[inc_ind])
     
     old_betas <- betas    # save old betas for distance calculation
-    #TODO how to get monoreg sorted values?
-    betas <- coef(lm.wfit(x=x[-inc_ind], y= (y - yhat$sorted_vals), w=wates[-inc_ind]))
+    # to retrieve old ordering of y for fitted values, we use y[match(x, sorted_x)]
+    betas <- coef(lm.wfit(x=x[-inc_ind], y= (y - yhat$yf[match(x[inc_ind], yhat$x)] ), w=wates[-inc_ind]))
     
     # TODO quantify change in yhat vals and beta vals
     # get euclidian distance between betas transformed into unit vectors
@@ -130,7 +130,8 @@ var(residuals(mr))
 mr$sd <- var(residuals(mr))
 mr$sd
 
-
+y[match(x, fx)]
+mr$yf[match(age, mr$x)]
 
 
 plot(mr)  # this shows the averaged data points
