@@ -32,9 +32,9 @@ get_pred <- function(mr_obj, xval){
 part_fit <- function(x, y, wates, ...){
   
   # cast x, y and wates to matrices
-  x <- as.matrix(x)
-  y <- as.matrix(y)
-  wates <- as.matrix(wates)
+  #x <- as.matrix(x)
+  #y <- as.matrix(y)
+  #wates <- as.matrix(wates)
   
   # TODO adapt to include monotonic _decreasing_ regression
   # assume that monotone variable is first column in x and increasing, unless specified otherwise
@@ -55,7 +55,7 @@ part_fit <- function(x, y, wates, ...){
   # throw error if the number of indices exceeds columns of x
   if(length(c(inc_ind, dec_ind)) > ncol(x)) stop("Number of proposed monotonic relationships exceeds columns of x.")
   
-  # TODO option for fit with no linear independent components
+  # option for fit with no linear independent components
   # TODO option for fit with no linear independent components and multiple monotone components
   if(length(c(inc_ind, dec_ind)) == ncol(x)){
     
@@ -63,7 +63,7 @@ part_fit <- function(x, y, wates, ...){
     
     mod$para <- NULL
     mod$fitted_pava <- yhat
-    # TODO how does return object need to be formatted?
+
     return(mod)
   }
   
@@ -109,6 +109,21 @@ part_fit <- function(x, y, wates, ...){
   
   return(mod)
 }
+
+
+X <- cbind(
+  sample(seq(from = -50, to = 50), size = 200, replace = TRUE),
+  sample(seq(from = -100, to = 100), size = 200, replace = TRUE),
+  sample(seq(from = -100, to = 100), size = 200, replace = TRUE),
+  sample(seq(from = -100, to = 100), size = 200, replace = TRUE),
+  sample(seq(from = -100, to = 100), size = 200, replace = TRUE)
+)
+
+W <- rep(1, 200)
+
+Y <- (X[,1])^3 + 3*X[,2] + 2*X[,3] - 4*X[,4] + X[,5] + rnorm(200, 0, 3)
+
+pseudo_df <- data.frame(Y, X, W)
 
 
 
