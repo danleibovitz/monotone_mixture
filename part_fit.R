@@ -61,9 +61,12 @@ part_fit <- function(x, y, wates, ...){
     
     yhat <- monoreg(x = x[,inc_ind], y = y, w = wates)
     
-    mod <- list(para = NULL, fitted_pava = NULL)
+    # mod must have: coef attribute, sigma attribute, cov attribute, df attribute, ..., and 
+    # may have mon_inc_index and mon_dec_index attributes
+    mod <- list(coef = NULL, fitted_pava = NULL, sigma = NULL, cov = NULL, df = NULL,
+                mon_inc_index = NULL, mon_dec_index = NULL)
   
-    mod$para <- NULL
+    mod$coef <- NULL
     mod$fitted_pava <- yhat
 
     return(mod)
@@ -87,7 +90,7 @@ part_fit <- function(x, y, wates, ...){
   delta <- 10
   # iterate between pava and linear model
   # TODO set while loop condition(s). Get appropriate measure of coefficient change
-  while(delta > 1e-7 & iter < maxiter){
+  while(delta > 1e-12 & iter < maxiter){
 
     yhat <- monoreg(x = x[,inc_ind], y = (y - x[,-inc_ind] %*% betas), w = wates)
     
@@ -104,11 +107,12 @@ part_fit <- function(x, y, wates, ...){
     iter <- iter + 1    # iterate maxiter
   }
   
-  # TODO how does return object need to be formatted?
-  # mod must have coefficients attribute and monoreg fit attribute
-  mod <- list(para = NULL, fitted_pava = NULL, iterations = NULL)
+  # mod must have: coef attribute, sigma attribute, cov attribute, df attribute, ..., and 
+  # may have mon_inc_index and mon_dec_index attributes
+  mod <- list(coef = NULL, fitted_pava = NULL, sigma = NULL, cov = NULL, df = NULL,
+              mon_inc_index = NULL, mon_dec_index = NULL)
   
-  mod$para <- betas
+  mod$coef <- betas
   mod$fitted_pava <- yhat
   mod$iterations <- iter
   
@@ -116,22 +120,25 @@ part_fit <- function(x, y, wates, ...){
 }
 
 
+
+
+# begin test driver:
 X <- cbind(
-  sample(seq(from = -10, to = 10), size = 200, replace = TRUE),
-  sample(seq(from = -10, to = 10), size = 200, replace = TRUE),
-  sample(seq(from = -100, to = 100), size = 200, replace = TRUE),
-  sample(seq(from = -100, to = 100), size = 200, replace = TRUE),
-  sample(seq(from = -100, to = 100), size = 200, replace = TRUE)
+  runif(50, -5, 5),
+  sample(seq(from = -10, to = 10), size = 50, replace = TRUE),
+  sample(seq(from = -100, to = 100), size = 50, replace = TRUE),
+  sample(seq(from = -100, to = 100), size = 50, replace = TRUE),
+  sample(seq(from = -100, to = 100), size = 50, replace = TRUE)
 )
 
-W <- rep(1, 200)
+W <- rep(1, 50)
 
-Y <- (X[,1])^3 + 1.5*X[,2] - 1.5*X[,3] - 2*X[,4] + X[,5] + rnorm(200, 0, 1000)
+Y <- (X[,1])^3 + 1.5*X[,2] - 1.5*X[,3] - 2*X[,4] + X[,5] + rnorm(50, 0, 100)
 
 pseudo_df <- data.frame(Y, X, W)
 
 model <- part_fit(x = pseudo_df[,2:6], y = pseudo_df$Y, wates = pseudo_df$W)
 
-
+plot(model$fitted_pava)  
 
 
