@@ -22,31 +22,9 @@ get_pred <- function(mr_obj, xval){
 }
 
 
-#  ifelse( xval < mr_obj$x[1], mr_obj$yf[1],
-#          ifelse(xval > tail(mr_obj$x, n=1), tail(mr_obj$yf, n=1), 
-#                 mr_obj$yf[sapply(testy, function(x) which.min(mr$x <= x)-1)]))
-#}
-#
-#sapply(testy, function(x) which.min(mr$x <= x)-1)
-#
-#  if(xval < mr_obj$x[1]){ # xval is lower than PAVA range
-#    yval <- mr_obj$yf[1]
-#  }
-#  else{
-#    if(xval > tail(mr_obj$x, n=1)){ # xval is higher than PAVA range
-#      yval <- tail(mr_obj$yf, n=1)
-#    }
-#    else{ # xval is within PAVA range
-#      yval <- mr_obj$yf[Position(function(x) x >= xval, mr_obj$x)- 1]
-#    }
-#  }
-#  
-#  yval
-#}
-
-
 # define partial linear regression of y on x with weights w
-part_fit <- function(x, y, wates, ...){
+# inputs are: x, y, wates, mon_inc_index, mon_dec_index, max_iter
+part_fit <- function(x, y, wates, mon_inc_index=NULL, mon_dec_index=NULL, max_iter=NULL, ...){
   
   # TODO cast y and wates to matrices ?
   # TODO correct behaviour for if x is ONLY a vector
@@ -57,14 +35,13 @@ part_fit <- function(x, y, wates, ...){
   
   # TODO adapt to include monotonic _decreasing_ regression
   # assume that monotone variable is first column in x and increasing, unless specified otherwise
-  dotarg = list(...)
-  if("mon_inc_index" %in% names(dotarg)){
+  if(!is.null(mon_inc_index)){
     inc_ind <- mon_inc_index
   } 
   else{
     inc_ind <- 1
   }
-  if("mon_dec_index" %in% names(dotarg)){
+  if(!is.null(mon_dec_index)){
     dec_ind <- mon_dec_index
   } 
   else{
@@ -107,7 +84,7 @@ part_fit <- function(x, y, wates, ...){
     betas <- coef(fit)[-c(inc_ind, dec_ind)]
   
     # set maximum iterations for convergence
-    if("max_iter" %in% names(dotarg)){
+    if(!is.null(max_iter)){
       if(max_iter < 1) stop("max_iter must be positive")
       maxiter <- max_iter
     }
