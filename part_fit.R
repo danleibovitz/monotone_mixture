@@ -11,11 +11,12 @@ cpav <- function(){
 # first, define function for obtaining f(x_new) for monotone regression f()
 # TODO enable mr_obj to hold multiple monoreg fits
 get_pred <- function(mr_obj, xval){
+  xval <- as.vector(xval)
   last <- length(mr_obj$x)
   
   mr_obj$yf[sapply(xval, function(z)
     ifelse( z < mr_obj$x[1], 1,
-            ifelse(z > tail(mr_obj$x, n=1), last, 
+            ifelse(z >= tail(mr_obj$x, n=1), last, 
                    which.min(mr_obj$x <= z)-1 ))
     )]
 }
@@ -47,7 +48,7 @@ get_pred <- function(mr_obj, xval){
 # define partial linear regression of y on x with weights w
 part_fit <- function(x, y, wates, ...){
   
-  # cast x, y and wates to matrices
+  # TODO cast y and wates to matrices ?
   # TODO correct behaviour for if x is ONLY a vector
   x <- as.matrix(x)
   
@@ -80,7 +81,7 @@ part_fit <- function(x, y, wates, ...){
     yhat <- monoreg(x = x[,inc_ind], y = y, w = wates)
     
     # get residuals of model
-    resids <- y - get_pred(yhat$fitted_pava, x[,c(inc_ind, dec_ind)])
+    resids <- y - get_pred(yhat, x[,c(inc_ind, dec_ind)])
     
     # mod must have: coef attribute, sigma attribute, cov attribute, df attribute, ..., and 
     # may have mon_inc_index and mon_dec_index attributes
@@ -138,7 +139,7 @@ part_fit <- function(x, y, wates, ...){
   }
   
   # get residuals of model
-  resids <- y - (get_pred(yhat$fitted_pava, x[,c(inc_ind, dec_ind)]) + (x[,-c(inc_ind, dec_ind)] %*% betas))
+  resids <- y - (get_pred(yhat, x[,c(inc_ind, dec_ind)]) + (x[,-c(inc_ind, dec_ind)] %*% betas))
   
   
   # mod must have: coef attribute, sigma attribute, cov attribute, df attribute, ..., and 
@@ -155,8 +156,7 @@ part_fit <- function(x, y, wates, ...){
   # TODO sigma is the sqrt of __ divided by (nrow(x) - model$rank). ...
   # ... but update when implementing CPAV
   # TODO ask matthias : rank of input matrix? or model matrix? different, depending on dummy coding, etc.
-  mod$sigma <- sqrt(sum(wates * (resids)^2 /
-                          mean(wates))/ (nrow(x)-qr(x)$rank))
+  mod$sigma <- sqrt(sum(wates * (resids)^2 / mean(wates))/ (nrow(x)-qr(x)$rank))
   mod$df <- ncol(x)+1
   
   
