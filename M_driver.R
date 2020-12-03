@@ -4,7 +4,7 @@ source("part_fit.R")
 # definition of monotone regression model.
 
 # TODO include OFFSET as optional argument?
-mono_reg <- function (formula = .~.) {
+mono_reg <- function (formula = .~., ...) {
   retval <- new("FLXMC", weighted = TRUE,
                 # TODO is dist param necessary?
                 formula = formula, # dist = "mvnorm",
