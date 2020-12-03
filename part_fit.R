@@ -1,5 +1,7 @@
 # define fitting function for partial linear model with 1 monotone-related variable
 
+# Wishlist:
+# provide part_fit() return object with a print() method that plots monotone component(s)
 
 # TODO define CPAV algorithm for addittive, iterative PAVA
 # TODO replace monoreg() with cpav()
@@ -55,7 +57,7 @@ part_fit <- function(x, y, wates, mon_inc_index=NULL, mon_dec_index=NULL, max_it
   # TODO option for fit with no linear independent components and multiple monotone components
   if(length(c(inc_ind, dec_ind)) == ncol(x)){
     
-    yhat <- monoreg(x = x[,inc_ind], y = y, w = wates)
+    yhat <- monoreg(x = x[wates != 0,inc_ind], y = y[wates != 0], w = wates[wates != 0])
     
     # get residuals of model
     resids <- y - get_pred(yhat, x[,c(inc_ind, dec_ind)])
@@ -99,12 +101,12 @@ part_fit <- function(x, y, wates, mon_inc_index=NULL, mon_dec_index=NULL, max_it
     # TODO set while loop condition(s). Get appropriate measure of coefficient change
     while(delta > 1e-12 & iter < maxiter){
   
-      yhat <- monoreg(x = x[,inc_ind], y = (y - x[,-inc_ind] %*% betas), w = wates)
+      yhat <- monoreg(x = x[wates != 0,inc_ind], y = (y[wates != 0] - x[wates != 0,-inc_ind] %*% betas), w = wates[wates != 0])
       
       old_betas <- betas    # save old betas for distance calculation
       # to retrieve old ordering of y for fitted values, we use y[match(x, sorted_x)]
-      betas <- coef(lm.wfit(x=x[,-inc_ind], y= (y - yhat$yf[match(x[,inc_ind], yhat$x)] ), w=wates))
-      
+      betas <- coef(lm.wfit(x=x[,-inc_ind], y= (y - get_pred(yhat, x[,inc_ind]) ), w=wates))
+
       # TODO quantify change in yhat vals and beta vals
       # get euclidian distance between betas transformed into unit vectors
       delta <- dist(rbind( as.vector(betas)/norm(as.vector(betas), type ="2"), 
@@ -117,8 +119,7 @@ part_fit <- function(x, y, wates, mon_inc_index=NULL, mon_dec_index=NULL, max_it
   
   # get residuals of model
   resids <- y - (get_pred(yhat, x[,c(inc_ind, dec_ind)]) + (x[,-c(inc_ind, dec_ind)] %*% betas))
-  
-  
+
   # mod must have: coef attribute, sigma attribute, cov attribute, df attribute, ..., and 
   # may have mon_inc_index and mon_dec_index attributes
   mod <- list(coef = NULL, fitted_pava = NULL, sigma = NULL, df = NULL,
@@ -135,7 +136,28 @@ part_fit <- function(x, y, wates, mon_inc_index=NULL, mon_dec_index=NULL, max_it
   # TODO ask matthias : rank of input matrix? or model matrix? different, depending on dummy coding, etc.
   mod$sigma <- sqrt(sum(wates * (resids)^2 / mean(wates))/ (nrow(x)-qr(x)$rank))
   mod$df <- ncol(x)+1
+
   
+  
+  # TODO description of pernicious, evil bug: 
+  # Sometimes, more so when the variance of the random component of Y is set below ~20, the final 
+  # monoreg() call (and possibly other monoreg() calls before that) produce NaN estimate(s), followed
+  # (on at least one occasion) by impossible dips in the non-increasing regression, as if the monotone 
+  # regression were starting again. These estimates are always attached to weights of 0, but not all 0-weights
+  # produce NaN estimates. Possibly a problem with monoreg()?
+  # Surprise! it is, in fact, monoreg. with sufficient number of 0 weights for a large sample (1000 vals),
+  # monoreg starts to produce NaN vals and applies monotone regression _between_ broken vectors. I think.
+  
+#  if(is.na(mod$sigma)){
+  #    
+  #    testy <- wates*(resids)^2
+  #  print(cbind(wates, get_pred(yhat, x[,c(inc_ind, dec_ind)]), x[,c(inc_ind, dec_ind)])[1:500,])
+  #  row <- 1
+  #  
+  #  print("bad sigma")
+  # 
+  #  print(c("sum(wates * resids^2): ", wates*(resids)^2 ))
+  #  }
   
   return(mod)
 }
