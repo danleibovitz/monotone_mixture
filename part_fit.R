@@ -28,7 +28,10 @@ get_pred <- function(mr_obj, xval){
 
 # define partial linear regression of y on x with weights w
 # inputs are: x, y, wates, mon_inc_index, mon_dec_index, max_iter
-part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL, max_iter=NULL, ...){
+part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL, max_iter=NULL, 
+                     component = NULL, ...){
+  
+  print(c(class(mon_inc_index), class(mon_dec_index), class(component)))
   
   # TODO cast y and wates to matrices ?
   # TODO correct behaviour for if x is ONLY a vector
@@ -41,18 +44,26 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
   if(length(y) != dim(x)[1] | length(y) != length(wates)) stop("Inputs are not of the same dimension!")
   
   # TODO adapt to include monotonic _decreasing_ regression
-  # assume that monotone variable is first column in x and increasing, unless specified otherwise
-  if(!is.null(mon_inc_index)){
-    inc_ind <- mon_inc_index
-  } 
-  else{
-    inc_ind <- 1
+  
+  # take monotone indices of previous component
+  if(!is.null(component)){
+    inc_ind <- dotarg$component$mon_inc_index
+    dec_ind <- dotarg$component$mon_dec_index
   }
-  if(!is.null(mon_dec_index)){
-    dec_ind <- mon_dec_index
-  } 
   else{
-    dec_ind <- NULL
+    # assume that monotone variable is first column in x and increasing, unless specified otherwise
+    if(!is.null(mon_inc_index)){
+      inc_ind <- mon_inc_index
+    } 
+    else{
+      inc_ind <- 1
+    }
+    if(!is.null(mon_dec_index)){
+      dec_ind <- mon_dec_index
+    } 
+    else{
+      dec_ind <- NULL
+    }
   }
   
   # throw error if the number of indices exceeds columns of x
@@ -88,6 +99,7 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
   else{
     # for starting values, fit a regular lm
     fit <- lm.wfit(x=x, y=y, w=wates)
+    print(c(class(inc_ind), class(dec_ind)))
     betas <- coef(fit)[-c(inc_ind, dec_ind)]
   
     # set maximum iterations for convergence
@@ -123,6 +135,7 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
   }
   
   # get residuals of model
+  print(c(class(inc_ind), class(dec_ind)))
   resids <- y - (get_pred(yhat, x[,c(inc_ind, dec_ind)]) + (x[,-c(inc_ind, dec_ind)] %*% betas))
 
   # mod must have: coef attribute, sigma attribute, cov attribute, df attribute, ..., and 
@@ -141,18 +154,6 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
   # TODO ask matthias : rank of input matrix? or model matrix? different, depending on dummy coding, etc.
   mod$sigma <- sqrt(sum(wates * (resids)^2 / mean(wates))/ (nrow(x)-qr(x)$rank))
   mod$df <- ncol(x)+1
-
-  
-  
-  # TODO description of pernicious, evil bug: 
-  # Sometimes, more so when the variance of the random component of Y is set below ~20, the final 
-  # monoreg() call (and possibly other monoreg() calls before that) produce NaN estimate(s), followed
-  # (on at least one occasion) by impossible dips in the non-increasing regression, as if the monotone 
-  # regression were starting again. These estimates are always attached to weights of 0, but not all 0-weights
-  # produce NaN estimates. Possibly a problem with monoreg()?
-  # Surprise! it is, in fact, monoreg. with sufficient number of 0 weights for a large sample (1000 vals),
-  # monoreg starts to produce NaN vals and applies monotone regression _between_ broken vectors. I think.
-  
 
   
   return(mod)
