@@ -2,9 +2,11 @@
 
 # Wishlist:
 # provide part_fit() return object with a print() method that plots monotone component(s)
+# select monotone component by name instead of index
 
 # TODO define CPAV algorithm for addittive, iterative PAVA
 # TODO replace monoreg() with cpav()
+# TODO mon_inc_index argument not working...
 cpav <- function(){
   
 }
@@ -26,11 +28,14 @@ get_pred <- function(mr_obj, xval){
 
 # define partial linear regression of y on x with weights w
 # inputs are: x, y, wates, mon_inc_index, mon_dec_index, max_iter
-part_fit <- function(x, y, wates, mon_inc_index=NULL, mon_dec_index=NULL, max_iter=NULL, ...){
+part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL, max_iter=NULL, ...){
   
   # TODO cast y and wates to matrices ?
   # TODO correct behaviour for if x is ONLY a vector
   x <- as.matrix(x)
+  
+  # set default weights
+  if(is.null(wates)) wates <- rep(1, length(y))
   
   # TODO make sure y and wates is not multivariate
   if(length(y) != dim(x)[1] | length(y) != length(wates)) stop("Inputs are not of the same dimension!")
@@ -148,16 +153,7 @@ part_fit <- function(x, y, wates, mon_inc_index=NULL, mon_dec_index=NULL, max_it
   # Surprise! it is, in fact, monoreg. with sufficient number of 0 weights for a large sample (1000 vals),
   # monoreg starts to produce NaN vals and applies monotone regression _between_ broken vectors. I think.
   
-#  if(is.na(mod$sigma)){
-  #    
-  #    testy <- wates*(resids)^2
-  #  print(cbind(wates, get_pred(yhat, x[,c(inc_ind, dec_ind)]), x[,c(inc_ind, dec_ind)])[1:500,])
-  #  row <- 1
-  #  
-  #  print("bad sigma")
-  # 
-  #  print(c("sum(wates * resids^2): ", wates*(resids)^2 ))
-  #  }
+
   
   return(mod)
 }
