@@ -9,32 +9,32 @@ setClassUnion("numericOrNULL",members=c("numeric", "NULL"))
 setClass(
   "FLX_component_plus",
   contains="FLXcomponent",
-  # TODO allow mon_index to take either numeric or NULL
+  # allow mon_index to take either numeric or NULL
   slots=c(mon_inc_index="numericOrNULL", mon_dec_index="numericOrNULL")
 ) 
 
-## TODO DEFINE FLXM_monoreg CORRECTLY!!!### give it mon_index attributes
+# Define FLXM_monoreg 
 setClass("FLXM_monoreg",
-         representation(y="matrix",
-                        dist="character"),
-         contains = "FLXM")
+         # TODO what does FLXM_monoreg need to inherit?
+         contains = "FLXM",
+         slots = c(mon_inc_index="numericOrNULL", mon_dec_index="numericOrNULL"))
 
 
 # definition of monotone regression model.
 
 # TODO include OFFSET as optional argument?
-mono_reg <- function (formula = .~., ...) {
+mono_reg <- function (formula = .~., mon_inc_index=NULL, mon_dec_index=NULL) {
 
   retval <- new("FLXM_monoreg", weighted = TRUE,
-                # TODO is dist param necessary?
                 formula = formula,
-                name = "partially linear monotonic regression") 
+                name = "partially linear monotonic regression",
+                mon_inc_index= mon_inc_index,
+                mon_dec_index= mon_dec_index) 
   
   # @defineComponent: Expression or function constructing the object of class FLXcomponent
-  # fit must have: coef attribute, sigma attribute, cov attribute, df attribute, ..., and 
+  # fit must have attributes: coef, sigma, cov, df, ..., and 
   # may have mon_inc_index and mon_dec_index attributes
   # ... all must be defined by fit() function
-  # TODO are extra arguments ... to defineComponent() necessary?
   retval@defineComponent <- function(fit, ...) {
                   # @logLik: A function(x,y) returning the log-likelihood for observations in matrices x and y
                   logLik <- function(x, y) { 
@@ -56,24 +56,20 @@ mono_reg <- function (formula = .~., ...) {
                     }
                     p
                   }
-                  # TODO what FLXcomponent object NEED?
-                  ret <- new("FLXcomponent", parameters =
+                  # return new FLX_component_plus object
+                  new("FLX_component_plus", parameters =
                         list(coef = fit$coef, sigma = fit$sigma),
-                      df = fit$df, logLik = logLik, predict = predict)
-                  
-                  # ret is cast as subclass object
-                  ret <- as(ret,"FLX_plus")
-                  ret@mon_inc_index <- fit$mon_inc_index
-                  ret@mon_dec_index <- fit$mon_dec_index
-                  
-                  ret
+                      df = fit$df, logLik = logLik, predict = predict,
+                      mon_inc_index = fit$mon_inc_index,
+                      mon_dec_index = fit$mon_dec_index)
   }
   
   # @fit: A function(x,y,w) returning an object of class "FLXcomponent"
-  #TODO inputs are x = covariates, y = DV, w = weights. Must have specification of covars with monotone relationship
-  retval@fit <- function(x, y, w, component,...) {
-    print(list(...))
-                  fit <- part_fit(x, y, w, component, ...)
+  retval@fit <- function(x, y, w, component, mon_inc_index = retval@mon_inc_index, 
+                         mon_dec_index = retval@mon_dec_index, ...) {
+    
+                  fit <- part_fit(x, y, w, component, mon_inc_index=mon_inc_index, 
+                                  mon_dec_index=mon_dec_index, ...)
                   
                   retval@defineComponent(fit, ...)
                   }
