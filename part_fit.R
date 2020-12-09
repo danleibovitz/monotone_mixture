@@ -6,15 +6,18 @@
 # - select monotone component by name instead of index
 
 
-# TODO define CPAV algorithm for addittive, iterative PAVA
 # TODO replace monoreg() with cpav() in part_fit()
-cpav <- function(x_mat, y, weights, inc_index, dec_index){
+# TODO apparently, cpav with any more than 2 components overfits infintely if the error of the
+# original Y construction is small....
+# inc_index and dec_index are the indices of x_mat which are supposed to have an isotonic and antitonic
+# relationship (respectively) with dependent variable y
+cpav <- function(x_mat, y, weights, inc_index=NULL, dec_index=NULL){
   
   joint_ind <- c(inc_index, dec_index)
   
   if(!is.matrix(x_mat)) stop("x_mat is not of class matrix, and will be rejected by lm.wfit")
-  if(any(weights == 0)) stop("monoreg() cannot take weights of 0!")
-  if(length(y) != length(weights)) stop("The dimension of the inputs is not 
+  if(any(weights == 0)) stop("monoreg(), and therefore cpav(), cannot take weights of 0!")
+  if(length(y) != length(weights) | length(y) != dim(x_mat)[1]) stop("The dimension of the inputs is not 
                                         equal to the dimension of the weights")
   
   # if there is only 1 monotone component, apply ordinary monotone regression
@@ -37,37 +40,73 @@ cpav <- function(x_mat, y, weights, inc_index, dec_index){
     start_betas <- coef(lm.wfit(x=x_mat[,joint_ind], y=y, w=weights))
     
     # set initial monotone reg estimates by calling each monoreg() against y - lm.predict(all other vars)
-    mr_fits <- as.vector(sapply(1:length(joint_ind), function(i) 
+    
+    mr_fits <- sapply(1:length(joint_ind), function(i) 
       if(joint_ind[i] %in% inc_index){
         # i apologize to anyone trying to read this line, but think: the columns of the x_matrix
         # indicated by join_ind, except the value of joint_ind at the ith place in joint_ind
         monoreg(x = x_mat[,joint_ind[i]], 
-                y = (y - x_mat[,joint_ind[-joint_ind[i]]] %*% start_betas[-i] ), w = weights, type = "isotonic")
+                y = (y - (as.matrix(x_mat[,joint_ind[-i]]) %*% start_betas[-i]) ), w = weights, type = "isotonic")
         }
       else if(joint_ind[i] %in% dec_index){
         monoreg(x = x_mat[,joint_ind[i]], 
-                y = (y - x_mat[,joint_ind[-joint_ind[i]]] %*% start_betas[-i] ), w = weights, type = "antitonic")
-      }))
+                y = (y - (as.matrix(x_mat[,joint_ind[-i]]) %*% start_betas[-i]) ), w = weights, type = "antitonic")
+      })
+    
+    # iterate through mr_fits. each column of mr_fits (e.g., mr_fits[,1]) is a monoreg fitted object,
+    # and its attributes can be called (e.g., mr_fits[,1]$yf)
+    # TODO provide stopping conditions to iteration step
+    # TODO remove iters diagnostic
+    iters <- 0
+    delta <- 0.1
+    
+    while(abs(delta) > 0.0000001 & iters < 1000){
+      old_SS <- mean( (y - get_pred(mr_fits, x_mat[,joint_ind]))^2 )
+      
+      for(i in 1:length(joint_ind)){
+        if(joint_ind[i] %in% inc_index){
+          # i apologize to anyone trying to read this line, but think: the columns of the x_matrix
+          # indicated by join_ind, except the value of joint_ind at the ith place in joint_ind
+          mr_fits[,i] <- monoreg(x = x_mat[,joint_ind[i]],
+                                 y = (y - get_pred(mr_fits[,-i], x_mat[,joint_ind[-i]]) ), w = weights, type = "isotonic")
+        }
+        else if(joint_ind[i] %in% dec_index){
+          mr_fits[,i] <- monoreg(x = x_mat[,joint_ind[i]],
+                                 y = (y - get_pred(mr_fits[,-i], x_mat[,joint_ind[-i]]) ), w = weights, type = "antitonic")
+        }
+        
+      }
+      
+      new_SS <- mean( (y - get_pred(mr_fits, x_mat[,joint_ind]))^2 )
+      
+      # TODO get delta in terms of _mean_ SS, so that number of observations doesnt matter
+      delta <- (old_SS - new_SS)/old_SS
+      
+      iters <- iters + 1
+    }
     
     return(mr_fits)
-    # iterate through mr_fits
   }
-  
-  
 }
 
 
 # first, define function for obtaining f(x_new) for monotone regression f()
-# TODO enable mr_obj to hold multiple monoreg fits
-get_pred <- function(mr_obj, xval){
-  xval <- as.vector(xval)
-  last <- length(mr_obj$x)
+# get_pred returns a vector of length = nrows(xvals), ie, a value for each observation of xvals
+get_pred <- function(mr_obj, xvals){
+  xvals <- as.matrix(xvals)
+  mr_obj <- as.matrix(mr_obj)
   
-  mr_obj$yf[sapply(xval, function(z)
-    ifelse( z < mr_obj$x[1], 1,
-            ifelse(z >= tail(mr_obj$x, n=1), last, 
-                   which.min(mr_obj$x <= z)-1 ))
-    )]
+  # TODO this stop is not catching badly formed arguments...
+  if(dim(mr_obj)[2] != dim(xvals)[2]) stop("get_pred() must take an X-matrix with as many columns
+                                            as monoreg() objects")
+  
+  apply(sapply(1:ncol(xvals), function(j)
+         mr_obj[,j]$yf[sapply(xvals[,j], function(z)
+           ifelse( z < mr_obj[,j]$x[1], 1,
+            ifelse(z >= tail(mr_obj[,j]$x, n=1), length(mr_obj[,j]$x), 
+                   which.min(mr_obj[,j]$x <= z)-1 )))]
+         ), 1, function(h) sum(h))
+
 }
 
 
