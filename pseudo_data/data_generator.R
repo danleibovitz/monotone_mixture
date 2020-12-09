@@ -47,3 +47,24 @@ pseudo_df_2$X2 <- hold
 
 
 
+# data with all monotone components
+X <- cbind(
+  runif(1000, -5, 5),
+  runif(1000, -10, 10),
+  runif(1000, -100, 100),
+  runif(1000, -100, 100),
+  runif(1000, -100, 100)
+)
+
+W <- rep(1, 1000)
+
+
+Y <- (X[,1])^3 - X[,2]^3 + 2*(X[,3]^3) - X[,4]^3 + 4*X[,5] + rnorm(1000, 0, 100) 
+Z <- (X[,1])^5 + X[,2] + (X[,3]^3) + rnorm(1000, 0, 100)
+
+mono_df <- data.frame(Y, X, W, Z)
+names(mono_df) <- c("Y", "X1", "X2", "X3", "X4", "X5", "W", "Z")
+
+
+
+
