@@ -60,7 +60,7 @@ cpav <- function(x_mat, y, weights, inc_index=NULL, dec_index=NULL){
     iters <- 0
     delta <- 0.1
     
-    while(abs(delta) > 0.0000001 & iters < 1000){
+    while(abs(delta) > 0.0000001 & iters < 100){
       old_SS <- mean( (y - get_pred(mr_fits, x_mat[,joint_ind]))^2 )
       
       for(i in 1:length(joint_ind)){
@@ -76,7 +76,7 @@ cpav <- function(x_mat, y, weights, inc_index=NULL, dec_index=NULL){
         }
         
       }
-      
+
       new_SS <- mean( (y - get_pred(mr_fits, x_mat[,joint_ind]))^2 )
       
       # TODO get delta in terms of _mean_ SS, so that number of observations doesnt matter
@@ -180,7 +180,10 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
   # TODO option for fit with no linear independent components and multiple monotone components
   if(length(c(inc_ind, dec_ind)) == ncol(x)){
     
-    yhat <- monoreg(x = x[wates != 0,inc_ind], y = y[wates != 0], w = wates[wates != 0])
+    yhat <- cpav(x_mat = x[wates != 0,], y = y[wates != 0], weights = wates[wates != 0], 
+                 inc_index = inc_ind, dec_index = dec_ind)
+    # TODO remove below monoreg() call
+    # monoreg(x = x[wates != 0,inc_ind], y = y[wates != 0], w = wates[wates != 0])
     
     # get residuals of model
     resids <- y - get_pred(yhat, x[,c(inc_ind, dec_ind)])
@@ -225,12 +228,15 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
     # TODO set while loop condition(s). Get appropriate measure of coefficient change
     while(delta > 1e-12 & iter < maxiter){
   
-      yhat <- monoreg(x = x[wates != 0,inc_ind], 
-                      y = (y[wates != 0] - x[wates != 0,-inc_ind] %*% betas), w = wates[wates != 0])
+      yhat <- cpav(x_mat = x[wates != 0,], y = (y[wates != 0] - (x[wates != 0,-c(inc_ind, dec_ind)] %*% betas)), 
+                   weights = wates[wates != 0], inc_index = inc_ind, dec_index = dec_ind)
+      # TODO remove below call to monoreg()
+      # monoreg(x = x[wates != 0,inc_ind], 
+      #                 y = (y[wates != 0] - x[wates != 0,-inc_ind] %*% betas), w = wates[wates != 0])
       
       old_betas <- betas    # save old betas for distance calculation
       # to retrieve old ordering of y for fitted values, we use y[match(x, sorted_x)]
-      betas <- coef(lm.wfit(x=x[,-inc_ind], y= (y - get_pred(yhat, x[,inc_ind]) ), w=wates))
+      betas <- coef(lm.wfit(x=x[,-c(inc_ind, dec_ind)], y= (y - get_pred(yhat, x[,c(inc_ind, dec_ind)]) ), w=wates))
 
       # TODO quantify change in yhat vals and beta vals
       # get euclidian distance between betas transformed into unit vectors
