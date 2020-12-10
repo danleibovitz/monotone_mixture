@@ -1,9 +1,10 @@
 
-source("part_fit.R")
+source("monotone_driver/part_fit.R")
 
 
 # allow slots defined for numeric to accept NULL
 setClassUnion("numericOrNULL",members=c("numeric", "NULL"))
+setClassUnion("characterOrNULL", members = c("character", "NULL"))
 
 # Define new classes
 setClass(
@@ -17,19 +18,29 @@ setClass(
 setClass("FLXM_monoreg",
          # TODO what does FLXM_monoreg need to inherit?
          contains = "FLXM",
-         slots = c(mon_inc_index="numericOrNULL", mon_dec_index="numericOrNULL"))
+         slots = c(mon_inc_index="numericOrNULL", 
+                   mon_dec_index="numericOrNULL",
+                   mon_inc_names="characterOrNULL",
+                   mon_dec_names="characterOrNULL"))
 
 
 # definition of monotone regression model.
 
 # TODO include OFFSET as optional argument?
-mono_reg <- function (formula = .~., mon_inc_index=NULL, mon_dec_index=NULL) {
+mono_reg <- function (formula = .~., mon_inc_names = NULL, mon_dec_names = NULL, mon_inc_index=NULL, mon_dec_index=NULL) {
 
+  # only names or indices can be indicated, not both
+  if((!is.null(mon_inc_names)|!is.null(mon_dec_names)) &
+     (!is.null(mon_inc_index)|!is.null(mon_dec_index))) stop("mono_reg() can accept either monotone
+                                                             names or indices can be chosen, but not both.")
+  
   retval <- new("FLXM_monoreg", weighted = TRUE,
                 formula = formula,
                 name = "partially linear monotonic regression",
                 mon_inc_index= mon_inc_index,
-                mon_dec_index= mon_dec_index) 
+                mon_dec_index= mon_dec_index, 
+                mon_inc_names= mon_inc_names,
+                mon_dec_names= mon_dec_names) 
   
   # @defineComponent: Expression or function constructing the object of class FLXcomponent
   # fit must have attributes: coef, sigma, cov, df, ..., and 
@@ -66,8 +77,10 @@ mono_reg <- function (formula = .~., mon_inc_index=NULL, mon_dec_index=NULL) {
   
   # @fit: A function(x,y,w) returning an object of class "FLXcomponent"
   retval@fit <- function(x, y, w, component, mon_inc_index = retval@mon_inc_index, 
-                         mon_dec_index = retval@mon_dec_index, ...) {
-    
+                         mon_dec_index = retval@mon_dec_index, 
+                         mon_inc_names = retval@mon_inc_names,
+                         mon_dec_names = retval@mon_dec_names, ...) {
+
                   fit <- part_fit(x, y, w, component, mon_inc_index=mon_inc_index, 
                                   mon_dec_index=mon_dec_index, ...)
                   
