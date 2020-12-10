@@ -23,7 +23,7 @@ For further discussion of the use of the flexmix package, see the guides [here](
 [here](https://cran.rapporter.net/web/packages/flexmix/vignettes/mixture-regressions.pdf), or the following
 [blog](https://www.r-bloggers.com/2013/06/estimating-finite-mixture-models-with-flexmix-package/).
 
-# N.B.
+### N.B.
 The indexing arguments passed to `mono_reg()` are indices of the design matrix constructed by the formula passed to `flexmix`, so they change
 based on the design matrix. For example, without an intercept, `mono_inc_index = 2` refers to the 2nd independent variable of the data frame; when 
 an intercept *is* included, `mono_inc_index = 2` refers to the 1st independent variable of the data frame.
