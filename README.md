@@ -1,10 +1,10 @@
 # monotone_mixture
-Driver and model definition for a mixture of partially linear models with monotone shape constraints.
+### Driver and model definition for a mixture of partially linear models with monotone shape constraints.
 
-To implement the code, you have to call the `flexmix()` function from the flexmix package with our `mono_reg()` function as the model argument. E.g., 
+To implement: call `flexmix()` from the flexmix package with `mono_reg()` as the model argument. E.g., 
 the following call to `flexmix()` produces a model with 6 components, each of which is a partial linear model regressing `Y` on all other 
-variables of `df` and with no intercept. The `mon_inc_index` argument to the function `mono_reg` indicates that the second independent variable in 
-`df` has a monotone-increasing, or isotonic, relationship with dependent variable `Y`.
+variables of `df` and with no intercept. The `mon_inc_index` argument to `mono_reg()` instructs the function to estimate a non-parametric, 
+monotone-increasing, aka isotonic, function on the second independent variable in `df`.
 
 ```R
 mod <- flexmix(Y ~ .-1, data = df, k = 6, model = mono_reg(mon_inc_index = 2))
