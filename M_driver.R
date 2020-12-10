@@ -7,7 +7,7 @@ setClassUnion("numericOrNULL",members=c("numeric", "NULL"))
 
 # Define new classes
 setClass(
-  "FLX_component_plus",
+  "FLX_monoreg_component",
   contains="FLXcomponent",
   # allow mon_index to take either numeric or NULL
   slots=c(mon_inc_index="numericOrNULL", mon_dec_index="numericOrNULL")
@@ -56,8 +56,8 @@ mono_reg <- function (formula = .~., mon_inc_index=NULL, mon_dec_index=NULL) {
                     }
                     p
                   }
-                  # return new FLX_component_plus object
-                  new("FLX_component_plus", parameters =
+                  # return new FLX_monoreg_component object
+                  new("FLX_monoreg_component", parameters =
                         list(coef = fit$coef, sigma = fit$sigma),
                       df = fit$df, logLik = logLik, predict = predict,
                       mon_inc_index = fit$mon_inc_index,
