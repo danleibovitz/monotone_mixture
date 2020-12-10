@@ -34,7 +34,8 @@ FLXMRglm <- function(formula=.~.,
     z@defineComponent <- function(para) {
       predict <- function(x, ...) {
         dotarg = list(...)
-        if("offset" %in% names(dotarg)) offset <- dotarg$offset
+        if("offset" %in% names(dotarg)) 
+          offset <- dotarg$offset
         p <- x %*% para$coef
         if (!is.null(offset)) p <-  p + offset
         p
