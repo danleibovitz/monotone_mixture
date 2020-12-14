@@ -1,10 +1,14 @@
 # define fitting function for partial linear model with arbitrary monotone-constrained component
 
 # Wishlist:
-# - each part_fit() should return a part_fit object, such that plot(part_fit) is defined
 # - provide part_fit() return object with a plot() method that plots monotone component(s)
+# - provide 
 # - select monotone component by name instead of index
+# - can part_fit take factors as monotone components?
 
+
+# libraries
+library(gridExtra)
 
 # TODO replace monoreg() with cpav() in part_fit()
 # TODO apparently, cpav with any more than 2 components overfits infintely if the error of the
@@ -128,8 +132,6 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
   # TODO make sure y and wates is not multivariate
   if(length(y) != dim(x)[1] | length(y) != length(wates)) stop("Inputs are not of the same dimension!")
   
-  # TODO adapt to include monotonic _decreasing_ regression
-  
   # take monotone indices of previous component
   if(!is.null(component)){
     inc_ind <- component$mon_inc_index
@@ -176,15 +178,12 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
   # throw error if the number of indices exceeds columns of x
   if(length(c(inc_ind, dec_ind)) > ncol(x)) stop("Number of proposed monotonic relationships exceeds columns of x.")
   
-  # option for fit with no linear independent components
-  # TODO option for fit with no linear independent components and multiple monotone components
+  # option for fit with no linear independent components and one or multiple monotone components:
   if(length(c(inc_ind, dec_ind)) == ncol(x)){
     
     yhat <- cpav(x_mat = x[wates != 0,], y = y[wates != 0], weights = wates[wates != 0], 
                  inc_index = inc_ind, dec_index = dec_ind)
-    # TODO remove below monoreg() call
-    # monoreg(x = x[wates != 0,inc_ind], y = y[wates != 0], w = wates[wates != 0])
-    
+
     # get residuals of model
     resids <- y - get_pred(yhat, x[,c(inc_ind, dec_ind)])
     
@@ -209,7 +208,6 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
   else{
     # for starting values, fit a regular lm
     fit <- lm.wfit(x=x, y=y, w=wates)
-    # TODO print(c(class(inc_ind), class(dec_ind)))
     betas <- coef(fit)[-c(inc_ind, dec_ind)]
   
     # set maximum iterations for convergence
@@ -249,7 +247,6 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
   }
   
   # get residuals of model
-  # TODO print(c(class(inc_ind), class(dec_ind)))
   resids <- y - (get_pred(yhat, x[,c(inc_ind, dec_ind)]) + (x[,-c(inc_ind, dec_ind)] %*% betas))
 
   # mod must have: coef attribute, sigma attribute, cov attribute, df attribute, ..., and 
@@ -269,12 +266,43 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
   mod$sigma <- sqrt(sum(wates * (resids)^2 / mean(wates))/ (nrow(x)-qr(x)$rank))
   mod$df <- ncol(x)+1
 
+  class(mod) <- "part_fit"
   
   return(mod)
 }
 
 
+# write plot method for objects returned from part_fit()
 
+append_suffix <- function(num){
+  suff <- case_when(num %in% c(11,12,13) ~ "th",
+                    num %% 10 == 1 ~ 'st',
+                    num %% 10 == 2 ~ 'nd',
+                    num %% 10 == 3 ~'rd',
+                    TRUE ~ "th")
+  paste0(num, suff)
+}
 
-
-
+plot.part_fit <- function(z){
+  if(dim(as.matrix(z$fitted_pava))[2] > 1){
+    temp <- list()
+    for(i in 1:dim(as.matrix(z$fitted_pava))[2]){
+      temp[[i]] <- ggplotGrob(ggplot() +
+        geom_line(aes(x = z$fitted_pava[,i]$x, y = z$fitted_pava[,i]$yf)) + 
+        theme_bw() +
+        labs(title = paste(append_suffix(i), " Monotone Regression"),
+             x = "X",
+             y = "Y"))
+    }
+    return(grid.arrange(grobs=temp, ncol=1))
+  }
+  else{
+    temp <- ggplot() +
+      geom_line(aes(x = z$fitted_pava$x, y = z$fitted_pava$yf)) + 
+      theme_bw() +
+      labs(title = "Monotone Regression",
+           x = "X",
+           y = "Y")
+    return(temp)
+  }
+}
