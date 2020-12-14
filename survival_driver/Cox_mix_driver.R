@@ -16,19 +16,19 @@ setClass(
 setClass("FLXM_Cox",
          contains = "FLXM",
          # TODO what slots does FLXM_Cox need?
-         slots = c(mon_inc_index="numericOrNULL", mon_dec_index="numericOrNULL"))
+         slots = c(elap_time="numericOrNULL", status="numericOrNULL"))
 
 
 # definition of monotone regression model.
 
 # TODO include OFFSET as optional argument?
-mono_reg <- function (formula = .~., mon_inc_index=NULL, mon_dec_index=NULL) {
+mono_reg <- function (formula = .~., elap_time=NULL, status=NULL) {
   
-  retval <- new("FLXM_monoreg", weighted = TRUE,
+  retval <- new("FLXM_Cox", weighted = TRUE,
                 formula = formula,
-                name = "partially linear monotonic regression",
-                mon_inc_index= mon_inc_index,
-                mon_dec_index= mon_dec_index) 
+                name = "Cox PH regression",
+                elap_time= elap_time,
+                status= status) 
   
   # @defineComponent: Expression or function constructing the object of class FLXcomponent
   # fit must have attributes: coef, sigma, cov, df, ..., and 
@@ -67,7 +67,7 @@ mono_reg <- function (formula = .~., mon_inc_index=NULL, mon_dec_index=NULL) {
   retval@fit <- function(x, y, w, component, mon_inc_index = retval@mon_inc_index, 
                          mon_dec_index = retval@mon_dec_index, ...) {
     
-    fit <- part_fit(x, y, w, component, mon_inc_index=mon_inc_index, 
+    fit <- coxph(x, y, w, component, mon_inc_index=mon_inc_index, 
                     mon_dec_index=mon_dec_index, ...)
     
     retval@defineComponent(fit, ...)
