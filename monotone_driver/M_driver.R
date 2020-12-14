@@ -1,4 +1,12 @@
 
+
+# ## Wishlist:
+# - somehow pass design matrix names from flexmix() call back to the construction of monoreg() so that
+# names can be interpreted as indices. Perhaps, override "FLXgetModelMatrix" method and add names(design_matrix)
+# slot? 
+# - give mono_reg() a grouping (e.g., group by id) ability
+
+
 source("monotone_driver/part_fit.R")
 
 
