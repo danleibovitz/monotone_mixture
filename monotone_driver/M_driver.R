@@ -5,6 +5,7 @@
 # names can be interpreted as indices. Perhaps, override "FLXgetModelMatrix" method and add names(design_matrix)
 # slot? 
 # - give mono_reg() a grouping (e.g., group by id) ability
+# - allow factors for non-monotone components of part_fit, and disallow factors for monotone components
 
 
 source("monotone_driver/part_fit.R")
@@ -13,13 +14,18 @@ source("monotone_driver/part_fit.R")
 # allow slots defined for numeric to accept NULL
 setClassUnion("numericOrNULL",members=c("numeric", "NULL"))
 setClassUnion("characterOrNULL", members = c("character", "NULL"))
+setOldClass("monoreg")
+setClassUnion("matrixOrMonoreg", members = c("matrix", "monoreg"))
 
 # Define new classes
 setClass(
   "FLX_monoreg_component",
   contains="FLXcomponent",
   # allow mon_index to take either numeric or NULL
-  slots=c(mon_inc_index="numericOrNULL", mon_dec_index="numericOrNULL")
+  slots=c(mon_inc_index="numericOrNULL", 
+          mon_dec_index="numericOrNULL",
+          mon_obj="matrix"
+          )
 ) 
 
 # Define FLXM_monoreg 
@@ -32,10 +38,15 @@ setClass("FLXM_monoreg",
                    mon_dec_names="characterOrNULL"))
 
 
+
+
+
+
 # definition of monotone regression model.
 
 # TODO include OFFSET as optional argument?
-mono_reg <- function (formula = .~., mon_inc_names = NULL, mon_dec_names = NULL, mon_inc_index=NULL, mon_dec_index=NULL) {
+mono_reg <- function (formula = .~., mon_inc_names = NULL, 
+                      mon_dec_names = NULL, mon_inc_index=NULL, mon_dec_index=NULL, ...) {
 
   # only names or indices can be indicated, not both
   if((!is.null(mon_inc_names)|!is.null(mon_dec_names)) &
@@ -80,7 +91,8 @@ mono_reg <- function (formula = .~., mon_inc_names = NULL, mon_dec_names = NULL,
                         list(coef = fit$coef, sigma = fit$sigma),
                       df = fit$df, logLik = logLik, predict = predict,
                       mon_inc_index = fit$mon_inc_index,
-                      mon_dec_index = fit$mon_dec_index)
+                      mon_dec_index = fit$mon_dec_index,
+                      mon_obj = fit$fitted_pava)
   }
   
   # @fit: A function(x,y,w) returning an object of class "FLXcomponent"

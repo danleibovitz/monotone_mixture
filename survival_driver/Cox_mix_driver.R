@@ -16,18 +16,19 @@ setClass(
 setClass("FLXM_Cox",
          contains = "FLXM",
          # TODO what slots does FLXM_Cox need?
-         slots = c(elap_time="numericOrNULL", status="numericOrNULL"))
+         slots = c(start="numericOrNULL", stop="numericOrNULL", status="numericOrNULL"))
 
 
 # definition of monotone regression model.
 
 # TODO include OFFSET as optional argument?
-mono_reg <- function (formula = .~., elap_time=NULL, status=NULL) {
+cox_reg <- function (formula = .~., start=NULL, stop=NULL, status=NULL) {
   
   retval <- new("FLXM_Cox", weighted = TRUE,
                 formula = formula,
                 name = "Cox PH regression",
-                elap_time= elap_time,
+                start= start,
+                stop= stop,
                 status= status) 
   
   # @defineComponent: Expression or function constructing the object of class FLXcomponent
@@ -56,7 +57,7 @@ mono_reg <- function (formula = .~., elap_time=NULL, status=NULL) {
       p
     }
     # return new FLX_monoreg_component object
-    new("FLX_monoreg_component", parameters =
+    new("FLX_Cox_component", parameters =
           list(coef = fit$coef, sigma = fit$sigma),
         df = fit$df, logLik = logLik, predict = predict,
         mon_inc_index = fit$mon_inc_index,
@@ -64,14 +65,33 @@ mono_reg <- function (formula = .~., elap_time=NULL, status=NULL) {
   }
   
   # @fit: A function(x,y,w) returning an object of class "FLXcomponent"
-  retval@fit <- function(x, y, w, component, mon_inc_index = retval@mon_inc_index, 
-                         mon_dec_index = retval@mon_dec_index, ...) {
+  retval@fit <- function(retval, component, ...) {
     
-    fit <- coxph(x, y, w, component, mon_inc_index=mon_inc_index, 
-                    mon_dec_index=mon_dec_index, ...)
+    # TODO provide coxph an 'init' argument from last component's coefficients
+    fit <- coxph(formula = retval@formula, 
+                 data = df, weights = w, ...)
     
     retval@defineComponent(fit, ...)
   }
+  
+  # retval@fit <- function(x, y, w, component, start = retval@start, 
+  #                        stop = retval@stop, status = retval@status, ...) {
+  #   
+  #   df <- data.frame(y = y, x = x, w = w)
+  #   names(df)[start] <- "start"
+  #   names(df)[stop] <- "stop"
+  #   df$y <- "status"
+  #   
+  #   # TODO provide coxph an 'init' argument from last component's coefficients
+  #   fit <- coxph(formula = Surv(start, stop, status) ~ . -w -start -stop -start, 
+  #                data = df, weights = w, ...)
+  #   
+  #   retval@defineComponent(fit, ...)
+  # }
+  
+  
+  
+  
   retval 
 }
 

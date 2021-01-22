@@ -9,6 +9,7 @@
 
 # libraries
 library(gridExtra)
+library(dplyr)
 
 # TODO replace monoreg() with cpav() in part_fit()
 # TODO apparently, cpav with any more than 2 components overfits infintely if the error of the
@@ -27,13 +28,16 @@ cpav <- function(x_mat, y, weights, inc_index=NULL, dec_index=NULL){
   # if there is only 1 monotone component, apply ordinary monotone regression
   if(length(joint_ind) == 1){
     if(length(inc_index) == 1){ # the component is monotone increasing
-      return(
-        monoreg(x = x_mat[,inc_index], y = y, w = weights)
+      return( # cast the monoreg object as a matrix, with all attributes as rows in the first column
+        matrix(monoreg(x = x_mat[,inc_index], y = y, w = weights), 
+               dimnames = list(c("x", "y", "w", "yf", "type", "call")))
       )
     }
     else{ # the component is monotone decreasing
-      return(
-        monoreg(x = x_mat[,dec_index], y = y, w = weights, type = "antitonic")
+      return( # cast the monoreg object as a matrix, with all attributes as rows in the first column
+        
+        matrix(monoreg(x = x_mat[,dec_index], y = y, w = weights, type = "antitonic"), 
+               dimnames = list(c("x", "y", "w", "yf", "type", "call")))
       )
     }
   }
