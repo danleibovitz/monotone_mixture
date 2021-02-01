@@ -1,31 +1,341 @@
 ---
-title: "monomix"
-
+title: "Mixtures of Regressions with Partially Monotone Components"
+knit: (function(input_file, encoding) {
+  out_dir <- 'docs';
+  rmarkdown::render(input_file,
+ encoding=encoding,
+ output_file=file.path(dirname(input_file), out_dir, 'monomix.html'))})
 author: "Daniel Leibovitz"
-date: '2021-01-22'
-
+output: html_document
+bibliography: monomixref.bib 
+link-citations: yes
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+library(lattice)
+library(flexmix)
+library(fdrtool)
+library(dplyr)
+library(data.table)
+library(readr)
+library("jsonlite") 
+source("monotone_driver/part_fit.R")
+source("monotone_driver/M_driver.R")
+source("pseudo_data/data_generator.R")
+source("monotone_driver/flex_wrapper.R")
+
+lifex <- read.csv("monotone_driver/API_SP.DYN.LE00.IN_DS2_en_csv_v2_1926713.csv", skip = 3)
+continent <- read.csv("monotone_driver/Metadata_Country_API_NY.GDP.MKTP.CD_DS2_en_csv_v2_1994746.csv")
+gdp2 <- read.csv("monotone_driver/API_NY.GDP.PCAP.CD_DS2_en_csv_v2_1926744.csv", skip=3)
+  
+#   
+# json_file <- 'https://datahub.io/core/gdp/datapackage.json' # get gdp data
+# json_data <- fromJSON(paste(readLines(json_file), collapse=""))
+# 
+# for(i in 1:length(json_data$resources$datahub$type)){
+#   if(json_data$resources$datahub$type[i]=='derived/csv'){
+#     path_to_file = json_data$resources$path[i]
+#     gdp <- read.csv(url(path_to_file))
+#   }
+# }
 ```
 
-## R Markdown
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
-```{r cars}
-summary(cars)
+```{r data_cleaning, echo=F}
+
+
+# clean lifex csv
+lifex <- lifex[,c(-3, -4, -64, -65, -66)]
+names(lifex)[3:61] <- substring(names(lifex)[3:61],2,5)
+lifex <- melt(setDT(lifex), id.vars = 1:2, variable.name = "Year")
+lifex <- lifex[complete.cases(lifex),]
+lifex$Year <- as.integer(as.character(lifex$Year))
+names(lifex)[4] <- "LifeExpectancy"
+# lifex <- lifex[,-2]
+
+# clean gdp2 csv
+gdp2 <- gdp2[,c(-2,-3, -4, -64, -65, -66)]
+names(gdp2)[2:60] <- substring(names(gdp2)[2:60],2,5)
+gdp2 <- melt(setDT(gdp2), id.vars = 1, variable.name = "Year")
+gdp2 <- gdp2[complete.cases(gdp2),]
+gdp2$Year <- as.integer(as.character(gdp2$Year))
+names(gdp2)[3] <- "GDP"
+
+
+# merge
+le <- merge(lifex, gdp2, by.x = c("Country.Name", "Year"), by.y = c("Country.Name", "Year"))
+
+continent <- merge(le, continent, by.x = c("Country.Code"), by.y = c("Country.Code"))
+
+le <- le[,-3] # remove country code
 ```
 
-## Including Plots
+### Motivating Example
 
-You can also embed plots, for example:
+Consider data on GDP and Life Expectancy of all countries between the years 1960 and 2018 [@worldbank]. Specifically, the data consists of $n$ observations $(Y_1, \vec{X_1}),...,(Y_n,\vec{X_n})$, where $Y$ represents Life Expectancy and the vector $\vec{X}$ represents GDP and Year. 
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+On a first pass visualization of this data, we find a mostly linear relationship between Life Expectancy & Year (1), and a highly non-linear relationship between Life Expectancy & GDP (2). 
+
+```{r motivation, echo=F, fig.align='center'}
+
+# exploratory vizualization
+
+continent %>%
+  filter(Region != "") %>%
+  group_by(Region, Year) %>%
+  summarise(mean_LE = mean(LifeExpectancy)) %>%
+ggplot(mapping = aes(x = Year, y = mean_LE, color = as.factor(Region))) + 
+  geom_line() +
+  theme_minimal() +
+  labs(title = "Life Expectancy by Global Region",
+       color="Regions") +
+  ylab("Life Expectancy (years)") +
+  xlab("Year")
+
+continent %>%
+  filter(Region != "") %>%
+  group_by(Region, Year) %>%
+  summarise(mean_GDP = log(mean(GDP)), mean_LE = mean(LifeExpectancy)) %>%
+ggplot(mapping = aes(x = mean_GDP, y = mean_LE, color = as.factor(Region))) + 
+  geom_line() +
+  theme_minimal() +
+  labs(title = "GDP per Capita by Global Region (log scale)",
+       color="Regions") +
+  ylab("Life Expectancy (years)") +
+  xlab("GDP per Capita (current USD, log scale)")
+  
+  
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+We would like to cluster the countries in the dataset into subgroups, each with distinctive relationships among the covariates. We further expect the relationship between Life Expectancy and both Year and GDP to be monotone non-decreasing, and we want to allow for distinct non-linearities one or both of these relationships within each cluster of countries. 
+
+One model that can accomplish this clustering task while incorporating monotonicity shape constraints within the submodels is a Mixture of Regressions, wherin each Regression is a Partial Linear Model. In the rest of this document, we elaborate the theory behind this model and demonstrate how such a model can be fit by an extension of the [flexmix](https://cran.r-project.org/web/packages/flexmix/flexmix.pdf) package in R. For a broader introduction to the use of this flexmix extension, see its [github page](https://github.com/danleibovitz/monotone_mixture).
+
+
+
+
+### Partial Linear Models with Monotonicity Constraints
+
+We begin with the component model, the partial linear model. The generalized partial linear model is an additive regression model with some finite combination of linear and non-linear components, which can be denoted thus:
+
+
+\begin{equation}
+\tag{1}
+  Y = \sum_{h=1}^{p} g_{h} (X_{i}) \ +\  \sum_{j=1}^{q} \beta_{j} X_{j} \ +\ \epsilon
+\end{equation}
+
+
+where the model has i non-linear components and j linear components, and each $g_{i}()$ is some nonparametric function of $X_{i}$
+
+When the non-linear components of the partial linear model have monotone shape constraints, we choose to estimate each $g_{i}()$ using the Pool Adjacent Violators Algorithm (PAVA) or Cyclic Pool Adjacent Violators Algorithm (CPAV). The PAVA -- for univariate monotone regression (2) -- returns a step-function fit in a single iteration without having to select a bandwidth, while the CPAV -- for multivariable monotone regression (3) -- returns a sum of step-functions by iterating through and updating univariate monotone functions until convergence.
+
+
+\begin{equation}
+\tag{2}
+  Y = g_{h} (X_{h}) \ +\ \epsilon
+\end{equation}
+
+
+\begin{equation}
+\tag{3}
+  Y = \sum_{h=1}^{p} g_{h} (X_{h}) \ +\ \epsilon
+\end{equation}
+
+
+
+The MLE of the entire partial linear model is obtained via a backfitting algorithm suggested by Cheng [@cheng], sequentially updating the linear and non-linear components of the partial linear model in a two-step process (2, 3) until convergence.
+
+\begin{equation}
+\tag{2}
+  (I) \ \ \ \ \ \ \ \ \ \{g_1,...,g_p\} = \underset{g_1:g_p}{\operatorname{argmin}} \sum_{i=1}^n\left(y_i-\sum_{j=1}^{q} \beta_{j} x_{ij}-\sum_{h=1}^{p} g_{h} (x_{ih})\right) \\
+  \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \  holding \ \ \ \vec\beta \ \ \ constant
+\end{equation}
+
+
+\begin{equation}
+\tag{3}
+  (II) \ \ \ \ \ \ \ \ \ \vec\beta = \underset{\beta}{\operatorname{argmin}} \sum_{i=1}^n\left(y_i-\sum_{h=1}^{p} g_{h} (x_{ih}) - \sum_{j=1}^{q} \beta_{j} x_{ij}\right) \\
+  \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \  holding \ \ \ \{g_1,...,g_p\} \ \ \ constant
+\end{equation}
+
+To demonstrate the functioning of this estimator, we fit a Partial Linear Model with randomly generated pseudo-data in which there is one covariate with a non-linear monotone effect on the dependent variable. We verify in the subsequent plot that the model indeed finds the correct monotone shape (cubic) and the correct linear coefficients ($1.5, -1.5, -1, 1$)
+
+```{r firstmod}
+# data with 1 monotone covariate
+################
+X <- cbind(
+  runif(1000, -5, 5),
+  runif(1000, -10, 10),
+  runif(1000, -100, 100),
+  runif(1000, -100, 100),
+  runif(1000, -100, 100)
+)
+
+
+Y1 <- (X[,1])^3 + 1.5*X[,2] - 1.5*X[,3] - 1*X[,4] + X[,5] + rnorm(1000, 0, 10)
+
+df_1 <- data.frame(Y1, X)
+names(df_1) <- c("Y", "X1", "X2", "X3", "X4", "X5")
+
+################
+
+
+m1 <- part_fit(x = df_1[,2:6], y = df_1$Y, mon_inc_index = 1)
+
+plot(m1)
+m1$coef
+```
+
+We can optionally fit more complex partial linear models by, for example, adding monotone covariates. Below, we fit and plot a partial linear model with 1 monotone non-decreasing covariate and 2 monotone non-increasing covariates.
+
+
+```{r firstmod_plot}
+
+# data with 3 monotone covariates
+################
+X <- cbind(
+  runif(100, -5, 5),
+  runif(100, -10, 10),
+  runif(100, -100, 100),
+  runif(100, -100, 100),
+  runif(100, -100, 100)
+)
+
+W <- runif(100, 0, 1)
+W[c(10, 20, 30, 40, 50, 60, 70)] <- 0.000000e+00
+
+Y <- (X[,1])^3 - X[,2]^3 - 1.5*X[,3] - 2*X[,4] + X[,5] + rnorm(100, 0, 1000)
+
+df_2 <- data.frame(Y, X, W)
+names(df_2) <- c("Y", "X1", "X2", "X3", "X4", "X5", "W")
+
+################
+
+
+
+model <- part_fit(x = df_2[,2:6], y = df_2$Y, mon_inc_index = 1, mon_dec_index = c(2,3), wates = df_2$W)
+
+plot(model)  
+
+```
+
+
+### Finite Mixture of Regression Models
+
+Follow these links for a more in-depth review of [Finite Mixture Models](https://jakevdp.github.io/PythonDataScienceHandbook/05.12-gaussian-mixtures.html "Mixture Modeling Tutorial"), and [Mixture of Regression Models](https://pages.mtu.edu/~shanem/psy5220/daily/Day19/Mixture_of_regressions.html "Mixtures of Linear Regressions Tutorial").
+
+As in the motivating example, suppose we observe $Y_i,...,Y_n$ and associated $X_i,...,X_n$. We assume that each observed set $(Y_i, \vec{X_i})$ belongs to one of $\{1,...,k\}$ unobserved components, for some positive integer $k$, and we denote this by a vector $Z$ where $Z_i \ \epsilon\ \{1,...,k\}$.
+
+Without specifying the exact form of the regression model $Y \sim f_k(\cdot|\vec{X})$ for component $k$, we can assume some vector of regression model parameters $\Theta$ and write the likelihood of the mixture model as such:
+
+$$L(\pi) \ =\ \prod_{i=1}^n \sum_{j=1}^k \pi_j P_j(Y_i\ |\ \vec{X_i},\ \Theta_j,\ Z_{ik})$$
+We find the asymptotic global maximum [@emalgo] of the likelihood function via the EM algorithm, which estimates the following:
+
+1. an $n \ \times\ k$ matrix $Z$ representing the posterior probability of each $(Y_i, \vec{X_i})$ belonging to each of $k_i$ components. 
+2. a vector $\pi_1,...,\pi_k$ of prior probabilities representing the mixing proportions of each component in the larger mixture model
+3. a set of parameters $\Theta_k$ for each regression component $k$ 
+
+
+By extension, the EM algorithm also allows us to compute the marginal probability of each $Y_i$:
+
+
+
+\begin{equation}
+\tag{4}
+  P(Y_i = y) \ =\ \sum_{k=1}^{K}\pi_kP(Y_i = y\ |\ X_i = x, \Theta_k,\ Z_{ik})
+\end{equation}
+
+
+### Flexmix Extension
+
+Here we demonstrate the results of the estimator described above, combinbing the the EM algorithm, the backfitting algorithms of Cheng [@cheng], and the CPAV algorithm of Bacchetti [@cpav]. We begin by modelling randomly generated pseudo-data from 4 latent categories
+
+
+
+
+```{r pseudo_mixture, warning=F}
+# data with 4 latent categories
+################
+X <- cbind(
+  runif(1000, -5, 5),
+  runif(1000, -10, 10),
+  runif(1000, -100, 100),
+  runif(1000, -100, 100),
+  runif(1000, -100, 100)
+)
+
+
+Y1 <- (X[1:250,1])+3 + 1.5*X[1:250,2] - 1.5*X[1:250,3] - 1*X[1:250,4] + X[1:250,5] + rnorm(250, 0, 3) # component 1
+Y2 <- (X[251:500,1])^3 + 3*X[251:500,2] + 2*X[251:500,3] - 2*X[251:500,4] + 2*X[251:500,5] + rnorm(250, 0, 4) # component 2
+Y3 <- 2*((X[501:750,1])+5) - 2*X[501:750,2] - 1*X[501:750,3] + 2*X[501:750,4] + 4*X[501:750,5] + rnorm(250, 0, 3) # component 3
+Y4 <- 2*((X[751:1000,1])-5) - 3*X[751:1000,2] - 3*X[751:1000,3] - 3*X[751:1000,4] + 3*X[751:1000,5] + rnorm(250, 0, 4) # component 4
+
+df_3 <- data.frame(c(Y1, Y2, Y3, Y4), X)
+names(df_3) <- c("Y", "X1", "X2", "X3", "X4", "X5")
+################
+
+
+# build model
+m3 <- flexmix(Y ~ .-1, data = df_3[,1:6], k = 4, model = mono_reg(mon_inc_index = 1), control = list(minprior = 0.1))
+
+# plot fitted model
+plot(m3, ylim=c(-100,100))
+
+```
+
+
+
+
+```{r noteval, eval=F, echo=F}
+
+# m8 <- stepFlexmix(LifeExpectancy ~ .-1, data = le[,c(2,3,4)], k = 1:4, model = mono_reg(mon_inc_index = 1)) # step model | no intercept | no grouping | monotone year
+
+
+# m10 <- stepFlexmix(LifeExpectancy ~ .-1-Country.Name|Country.Name, data = le, k = 1:4, model = mono_reg(mon_inc_index = c(1,2))) # step model | no intercept | grouped | monotone year x monotone GDP
+
+# m12 <- stepFlexmix(LifeExpectancy ~ .-Country.Name|Country.Name, data = le, k = 1:7, model = mono_reg(mon_inc_index = 2)) # step model | with intercept | grouped | monotone year
+
+
+# m14 <- stepFlexmix(LifeExpectancy ~ .-1-Country.Name|Country.Name, data = le[,c(1,2,3)], k = 1:7, model = mono_reg(mon_inc_index = 1)) # step model | no intercept | grouped | monotone year | no linear component
+
+m15 <- stepFlexmix(LifeExpectancy ~ .-Country.Name|Country.Name, data = le, k = 1:7, model = mono_reg(mon_inc_index = 3)) # step model | with intercept | grouped | monotone GDP
+
+```
+
+Finally, we return to the motivating example, building two step models: one with `Year` as the monotone covariate, one with `GDP` as the monotone covariate. Each model is in fact a series of 21 mixture models, 3 for each of $k = 1,...,7$. For each series, we plot the AIC and BIC per $k$, the monotone fits for the model $k$ with the minimum AIC, and a list of countries within each cluster.
+
+```{r le_model, eval=T}
+# Life expectancy models
+
+m9 <- stepFlexmix(LifeExpectancy ~ .-1-Country.Name|Country.Name, data = le, k = 1:7, model = mono_reg(mon_inc_index = 1)) # step model | no intercept | grouped | monotone year
+
+m13 <- stepFlexmix(LifeExpectancy ~ .-1-Country.Name|Country.Name, data = le, k = 1:7, model = mono_reg(mon_inc_index = 2)) # step model | no intercept | grouped | monotone GDP
+
+
+
+
+###
+
+
+# m9
+plot(m9)
+num <- which.max(apply(m9@logLiks, 1, function(x) mean(x)))
+plot(m9@models[[num]])
+sapply(1:num, function(x) unique(le$Country.Name[m9@models[[num]]@cluster==x])) # list countries by cluster
+
+# m13
+plot(m13)
+num <- which.max(apply(m13@logLiks, 1, function(x) mean(x)))
+plot(m13@models[[num]])
+sapply(1:num, function(x) unique(le$Country.Name[m13@models[[num]]@cluster==x])) # list countries by cluster
+
+```
+
+
+
+
+### References

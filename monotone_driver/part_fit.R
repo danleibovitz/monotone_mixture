@@ -5,6 +5,8 @@
 # - provide 
 # - select monotone component by name instead of index
 # - can part_fit take factors as monotone components?
+# - Confidence intervals for linear components
+# - plot method for linear components
 
 
 # libraries
@@ -16,7 +18,7 @@ library(dplyr)
 # original Y construction is small....
 # inc_index and dec_index are the indices of x_mat which are supposed to have an isotonic and antitonic
 # relationship (respectively) with dependent variable y
-cpav <- function(x_mat, y, weights, inc_index=NULL, dec_index=NULL){
+cpav <- function(x_mat, y, weights, inc_index=NULL, dec_index=NULL, max_iters_cpav=NULL, max_delta_cpav=NULL){
   
   joint_ind <- c(inc_index, dec_index)
   
@@ -29,14 +31,14 @@ cpav <- function(x_mat, y, weights, inc_index=NULL, dec_index=NULL){
   if(length(joint_ind) == 1){
     if(length(inc_index) == 1){ # the component is monotone increasing
       return( # cast the monoreg object as a matrix, with all attributes as rows in the first column
-        matrix(monoreg(x = x_mat[,inc_index], y = y, w = weights), 
+        matrix(suppressWarnings(monoreg(x = x_mat[,inc_index], y = y, w = weights)), 
                dimnames = list(c("x", "y", "w", "yf", "type", "call")))
       )
     }
     else{ # the component is monotone decreasing
       return( # cast the monoreg object as a matrix, with all attributes as rows in the first column
         
-        matrix(monoreg(x = x_mat[,dec_index], y = y, w = weights, type = "antitonic"), 
+        matrix(suppressWarnings(monoreg(x = x_mat[,dec_index], y = y, w = weights, type = "antitonic")), 
                dimnames = list(c("x", "y", "w", "yf", "type", "call")))
       )
     }
@@ -53,12 +55,12 @@ cpav <- function(x_mat, y, weights, inc_index=NULL, dec_index=NULL){
       if(joint_ind[i] %in% inc_index){
         # i apologize to anyone trying to read this line, but think: the columns of the x_matrix
         # indicated by join_ind, except the value of joint_ind at the ith place in joint_ind
-        monoreg(x = x_mat[,joint_ind[i]], 
-                y = (y - (as.matrix(x_mat[,joint_ind[-i]]) %*% start_betas[-i]) ), w = weights, type = "isotonic")
+        suppressWarnings(monoreg(x = x_mat[,joint_ind[i]], 
+                y = (y - (as.matrix(x_mat[,joint_ind[-i]]) %*% start_betas[-i]) ), w = weights, type = "isotonic"))
         }
       else if(joint_ind[i] %in% dec_index){
-        monoreg(x = x_mat[,joint_ind[i]], 
-                y = (y - (as.matrix(x_mat[,joint_ind[-i]]) %*% start_betas[-i]) ), w = weights, type = "antitonic")
+        suppressWarnings(monoreg(x = x_mat[,joint_ind[i]], 
+                y = (y - (as.matrix(x_mat[,joint_ind[-i]]) %*% start_betas[-i]) ), w = weights, type = "antitonic"))
       })
     
     # iterate through mr_fits. each column of mr_fits (e.g., mr_fits[,1]) is a monoreg fitted object,
@@ -66,21 +68,27 @@ cpav <- function(x_mat, y, weights, inc_index=NULL, dec_index=NULL){
     # TODO provide stopping conditions to iteration step
     # TODO remove iters diagnostic
     iters <- 0
-    delta <- 0.1
+    delta <- 0.5
+    if(is.null(max_iters_cpav)){
+      max_iters_cpav <- 100
+    }
+    if(is.null(max_delta_cpav)){
+      max_delta_cpav <- 0.0000001
+    }
     
-    while(abs(delta) > 0.0000001 & iters < 100){
+    while(abs(delta) > max_delta_cpav & iters < max_iters_cpav){
       old_SS <- mean( (y - get_pred(mr_fits, x_mat[,joint_ind]))^2 )
       
       for(i in 1:length(joint_ind)){
         if(joint_ind[i] %in% inc_index){
           # i apologize to anyone trying to read this line, but think: the columns of the x_matrix
           # indicated by join_ind, except the value of joint_ind at the ith place in joint_ind
-          mr_fits[,i] <- monoreg(x = x_mat[,joint_ind[i]],
-                                 y = (y - get_pred(mr_fits[,-i], x_mat[,joint_ind[-i]]) ), w = weights, type = "isotonic")
+          mr_fits[,i] <- suppressWarnings(monoreg(x = x_mat[,joint_ind[i]],
+                                 y = (y - get_pred(mr_fits[,-i], x_mat[,joint_ind[-i]]) ), w = weights, type = "isotonic"))
         }
         else if(joint_ind[i] %in% dec_index){
-          mr_fits[,i] <- monoreg(x = x_mat[,joint_ind[i]],
-                                 y = (y - get_pred(mr_fits[,-i], x_mat[,joint_ind[-i]]) ), w = weights, type = "antitonic")
+          mr_fits[,i] <- suppressWarnings(monoreg(x = x_mat[,joint_ind[i]],
+                                 y = (y - get_pred(mr_fits[,-i], x_mat[,joint_ind[-i]]) ), w = weights, type = "antitonic"))
         }
         
       }
@@ -123,7 +131,7 @@ get_pred <- function(mr_obj, xvals){
 # TODO max_iter must be passed through M_driver just like mon_inc_index, or 
 # else user will not be able to specify the max_iter param
 part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL, max_iter=NULL, 
-                     component = NULL, ...){
+                     component = NULL, na.rm=T, mono_names = NULL, ...){
   
 
   # TODO cast y and wates to matrices ?
@@ -132,6 +140,18 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
   
   # set default weights
   if(is.null(wates)) wates <- rep(1, length(y))
+  
+  # remove incomplete cases
+  if(T){ # for now, there is no alternative to na.rm=T.  All incomplete cases are removed.
+    cc <- complete.cases(y) & complete.cases(x) & complete.cases(wates)
+    y <- y[cc]
+    x <- x[cc,]
+    wates <- wates[cc]
+    cc <- NULL
+  }
+  
+  x <- as.matrix(x) # cast again. hacky but necessary?
+  
   
   # TODO make sure y and wates is not multivariate
   if(length(y) != dim(x)[1] | length(y) != length(wates)) stop("Inputs are not of the same dimension!")
@@ -182,10 +202,15 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
   # throw error if the number of indices exceeds columns of x
   if(length(c(inc_ind, dec_ind)) > ncol(x)) stop("Number of proposed monotonic relationships exceeds columns of x.")
   
+  # TODO get names of monotone components for plotting
+  # if(is.null(mono_names)){
+  #   # set names according to monotone indices. First increasing indices, then decreasing indices
+  # }
+  
   # option for fit with no linear independent components and one or multiple monotone components:
   if(length(c(inc_ind, dec_ind)) == ncol(x)){
     
-    yhat <- cpav(x_mat = x[wates != 0,], y = y[wates != 0], weights = wates[wates != 0], 
+    yhat <- cpav(x_mat = as.matrix(x[wates != 0,]), y = y[wates != 0], weights = wates[wates != 0], 
                  inc_index = inc_ind, dec_index = dec_ind)
 
     # get residuals of model
@@ -194,7 +219,7 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
     # mod must have: coef attribute, sigma attribute, cov attribute, df attribute, ..., and 
     # may have mon_inc_index and mon_dec_index attributes
     mod <- list(coef = NULL, fitted_pava = NULL, sigma = NULL, df = NULL,
-                mon_inc_index = NULL, mon_dec_index = NULL, iterations = NULL)
+                mon_inc_index = NULL, mon_dec_index = NULL, iterations = NULL, mono_names = NULL)
   
     mod$coef <- NULL
     mod$fitted_pava <- yhat
@@ -206,6 +231,8 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
     mod$sigma <- sqrt(sum(wates * (resids)^2 /
                                      mean(wates))/ (nrow(x)-qr(x)$rank))
     mod$df <- ncol(x)+1
+    
+    class(mod) <- "part_fit"
     
     return(mod)
   }
@@ -230,7 +257,7 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
     # TODO set while loop condition(s). Get appropriate measure of coefficient change
     while(delta > 1e-12 & iter < maxiter){
   
-      yhat <- cpav(x_mat = x[wates != 0,], y = (y[wates != 0] - (x[wates != 0,-c(inc_ind, dec_ind)] %*% betas)), 
+      yhat <- cpav(x_mat = as.matrix(x[wates != 0,]), y = (y[wates != 0] - (as.matrix(x[wates != 0,-c(inc_ind, dec_ind)]) %*% betas)), 
                    weights = wates[wates != 0], inc_index = inc_ind, dec_index = dec_ind)
       # TODO remove below call to monoreg()
       # monoreg(x = x[wates != 0,inc_ind], 
@@ -238,7 +265,7 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
       
       old_betas <- betas    # save old betas for distance calculation
       # to retrieve old ordering of y for fitted values, we use y[match(x, sorted_x)]
-      betas <- coef(lm.wfit(x=x[,-c(inc_ind, dec_ind)], y= (y - get_pred(yhat, x[,c(inc_ind, dec_ind)]) ), w=wates))
+      betas <- coef(lm.wfit(x=as.matrix(x[,-c(inc_ind, dec_ind)]), y= (y - get_pred(yhat, x[,c(inc_ind, dec_ind)]) ), w=wates))
 
       # TODO quantify change in yhat vals and beta vals
       # get euclidian distance between betas transformed into unit vectors
@@ -251,7 +278,7 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
   }
   
   # get residuals of model
-  resids <- y - (get_pred(yhat, x[,c(inc_ind, dec_ind)]) + (x[,-c(inc_ind, dec_ind)] %*% betas))
+  resids <- y - (get_pred(yhat, x[,c(inc_ind, dec_ind)]) + (as.matrix(x[,-c(inc_ind, dec_ind)]) %*% betas))
 
   # mod must have: coef attribute, sigma attribute, cov attribute, df attribute, ..., and 
   # may have mon_inc_index and mon_dec_index attributes
@@ -302,7 +329,7 @@ plot.part_fit <- function(z){
   }
   else{
     temp <- ggplot() +
-      geom_line(aes(x = z$fitted_pava$x, y = z$fitted_pava$yf)) + 
+      geom_line(aes(x = z$fitted_pava[,1]$x, y = z$fitted_pava[,1]$yf)) + 
       theme_bw() +
       labs(title = "Monotone Regression",
            x = "X",

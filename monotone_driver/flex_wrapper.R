@@ -1,4 +1,11 @@
-# wrap flexmix plotting method
+## Wishlist
+
+# - the override plot method should be able to include the rootogram from the old plot method, e.g. 
+# by calling flexmix::plot() within the plot method. This, however, seems to call the current method --
+# even though the current method is not within the flexmix package -- initiating infinite recursion
+# - predict method
+
+# wrap various flexmix methods
 
 library(ggplot2)
 library(grid)
@@ -78,9 +85,9 @@ setMethod('plot',  signature(x="flexmix", y="missing"),
                 }
                 
                 temp[[i]] <- ggplotGrob(holder)
-                
               }
               return(grid.arrange(grobs=temp, ncol=1))
+              # return(grid.arrange(grobs=temp, ncol=1))
             }
             else{
               temp <- ggplot() +
@@ -122,26 +129,33 @@ setMethod('plot',  signature(x="flexmix", y="missing"),
               }
               
               
-              return(temp)
+              return(grid.arrange(temp, ncol=1))
+              # temp <- ggplotGrob(temp)
             }
-}
+  }
             
-            
-            
-            
-            
-            
-            
+            # hh <- ggplotGrob(flexmix::plot(x))
+
             # groblist <- append(groblist, plot(as(x, "flexmix"))) # append rootogram
             # 
             # grid.arrange(grobs=groblist, ncol=1)
+            # return(grid.arrange(grobs=c(temp #,hh
+                                        # ), ncol=1))
           }          
 )
             
             
             
-            
-            
+
+# TODO write predict method for monoreg flexmix objects
+# setMethod('predict',  signature(x="flexmix", y="missing"),
+#           function(x, mark=NULL, markcol=NULL, col=NULL, 
+#                    eps=1e-4, root=TRUE, ylim=NULL, xlim=NULL, main=NULL, xlab=NULL, ylab=NULL,
+#                    as.table = TRUE, endpoints = c(-0.04, 1.04), rootogram=F, ...) {
+#             
+#             
+#           })
+
             
             
             
