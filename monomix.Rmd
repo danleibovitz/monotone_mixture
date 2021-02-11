@@ -5,7 +5,6 @@ knit: (function(input_file, encoding) {
   rmarkdown::render(input_file,
  encoding=encoding,
  output_file=file.path(dirname(input_file), out_dir, 'monomix.html'))})
-author: "Daniel Leibovitz"
 output: html_document
 bibliography: monomixref.bib 
 link-citations: yes
@@ -20,7 +19,12 @@ library(fdrtool)
 library(dplyr)
 library(data.table)
 library(readr)
-library("jsonlite") 
+library(rnaturalearth)
+library(ggnewscale)
+library(gtable)
+library(ggplot2)
+library(RColorBrewer)
+library(grid)
 source("monotone_driver/part_fit.R")
 source("monotone_driver/M_driver.R")
 source("pseudo_data/data_generator.R")
@@ -30,18 +34,215 @@ lifex <- read.csv("monotone_driver/API_SP.DYN.LE00.IN_DS2_en_csv_v2_1926713.csv"
 continent <- read.csv("monotone_driver/Metadata_Country_API_NY.GDP.MKTP.CD_DS2_en_csv_v2_1994746.csv")
 gdp2 <- read.csv("monotone_driver/API_NY.GDP.PCAP.CD_DS2_en_csv_v2_1926744.csv", skip=3)
   
-#   
-# json_file <- 'https://datahub.io/core/gdp/datapackage.json' # get gdp data
-# json_data <- fromJSON(paste(readLines(json_file), collapse=""))
-# 
-# for(i in 1:length(json_data$resources$datahub$type)){
-#   if(json_data$resources$datahub$type[i]=='derived/csv'){
-#     path_to_file = json_data$resources$path[i]
-#     gdp <- read.csv(url(path_to_file))
-#   }
-# }
-```
 
+
+lifex$Country.Name <- as.character(lifex$Country.Name)
+lifex$Country.Name[which(lifex$Country.Name %in% c(
+"Antigua and Barbuda",
+"Bahamas, The" ,
+"Bosnia and Herzegovina", 
+"Brunei Darussalam" ,
+"Cabo Verde"  ,
+"Cayman Islands", 
+"Central African Republic" ,
+"Congo, Dem. Rep.", 
+"Congo, Rep." ,
+"Cote d'Ivoire", 
+"Curacao" ,
+"Czech Republic", 
+"Dominican Republic", 
+"Egypt, Arab Rep." ,
+"Equatorial Guinea" ,
+"Eswatini" ,
+"Faroe Islands", 
+"French Polynesia", 
+"Gambia, The" ,
+"Hong Kong SAR, China",
+"Iran, Islamic Rep.",
+"Korea, Rep." ,
+"Kyrgyz Republic", 
+"Macao SAR, China", 
+"Marshall Islands" ,
+"Micronesia, Fed. Sts.", 
+"Russian Federation" ,
+"Sao Tome and Principe",  
+"Sint Maarten (Dutch part)", 
+"Slovak Republic" ,
+"Solomon Islands" ,
+"South Sudan",
+"St. Lucia" ,
+"St. Vincent and the Grenadines", 
+"Syrian Arab Republic",
+"Venezuela, RB" ,
+"Virgin Islands (U.S.)",
+"Yemen, Rep." 
+))] <- c( "Antigua and Barb.",
+ "Bahamas",
+ "Bosnia and Herz." ,
+ "Brunei" ,
+ "Cape Verde", 
+ "Cayman Is." ,
+ "Central African Rep.", 
+ "Dem. Rep. Congo",
+ "Congo",
+ "Côte d'Ivoire",
+ "Curaçao",
+ "Czech Rep.",
+ "Dominican Rep.",
+"Egypt",
+ "Eq. Guinea",
+"Swaziland",
+"Faeroe Is.",
+ "Fr. Polynesia",
+"Gambia",
+ "Hong Kong",
+ "Iran",
+ "Korea",
+ "Kyrgyzstan",
+ "Macao",
+ "Marshall Is.",
+"Micronesia",
+ "Russia",
+ "São Tomé and Principe" ,
+ "Sint Maarten",
+ "Slovakia",
+ "Solomon Is.",
+ "S. Sudan",
+ "Saint Lucia",
+ "St. Vin. and Gren.",
+ "Syria",
+"Venezuela",
+ "U.S. Virgin Is.",
+ "Yemen"
+ )
+lifex$Country.Name <- as.factor(lifex$Country.Name)
+
+
+
+
+gdp2$Country.Name <- as.character(gdp2$Country.Name)
+gdp2$Country.Name[which(gdp2$Country.Name %in% c(
+"Antigua and Barbuda",
+"Bahamas, The" ,
+"Bosnia and Herzegovina", 
+"Brunei Darussalam" ,
+"Cabo Verde"  ,
+"Cayman Islands", 
+"Central African Republic" ,
+"Congo, Dem. Rep.", 
+"Congo, Rep." ,
+"Cote d'Ivoire", 
+"Curacao" ,
+"Czech Republic", 
+"Dominican Republic", 
+"Egypt, Arab Rep." ,
+"Equatorial Guinea" ,
+"Eswatini" ,
+"Faroe Islands", 
+"French Polynesia", 
+"Gambia, The" ,
+"Hong Kong SAR, China",
+"Iran, Islamic Rep.",
+"Korea, Rep." ,
+"Kyrgyz Republic", 
+"Macao SAR, China", 
+"Marshall Islands" ,
+"Micronesia, Fed. Sts.", 
+"Russian Federation" ,
+"Sao Tome and Principe",  
+"Sint Maarten (Dutch part)", 
+"Slovak Republic" ,
+"Solomon Islands" ,
+"South Sudan",
+"St. Lucia" ,
+"St. Vincent and the Grenadines", 
+"Syrian Arab Republic",
+"Venezuela, RB" ,
+"Virgin Islands (U.S.)",
+"Yemen, Rep." 
+))] <- c( "Antigua and Barb.",
+ "Bahamas",
+ "Bosnia and Herz." ,
+ "Brunei" ,
+ "Cape Verde", 
+ "Cayman Is." ,
+ "Central African Rep.", 
+ "Dem. Rep. Congo",
+ "Congo",
+ "Côte d'Ivoire",
+ "Curaçao",
+ "Czech Rep.",
+ "Dominican Rep.",
+"Egypt",
+ "Eq. Guinea",
+"Swaziland",
+"Faeroe Is.",
+ "Fr. Polynesia",
+"Gambia",
+ "Hong Kong",
+ "Iran",
+ "Korea",
+ "Kyrgyzstan",
+ "Macao",
+ "Marshall Is.",
+"Micronesia",
+ "Russia",
+ "São Tomé and Principe" ,
+ "Sint Maarten",
+ "Slovakia",
+ "Solomon Is.",
+ "S. Sudan",
+ "Saint Lucia",
+ "St. Vin. and Gren.",
+ "Syria",
+"Venezuela",
+ "U.S. Virgin Is.",
+ "Yemen"
+ )
+gdp2$Country.Name <- as.factor(gdp2$Country.Name)
+
+
+
+# "Antigua and Barbuda"<- "Antigua and Barb."
+# "Bahamas, The" <- "Bahamas"
+# "Bosnia and Herzegovina"  <- "Bosnia and Herz." 
+# "Brunei Darussalam" <- "Brunei" 
+# "Cabo Verde" <- "Cape Verde" 
+# "Cayman Islands" <- "Cayman Is." 
+# "Central African Republic" <- "Central African Rep." 
+# "Congo, Dem. Rep." <- "Dem. Rep. Congo"
+# "Congo, Rep." <- "Congo"
+# "Cote d'Ivoire" <- "Côte d'Ivoire"
+# "Curacao" <- "Curaçao"
+# "Czech Republic" <- "Czech Rep."
+# "Dominican Republic" <- "Dominican Rep."
+# "Egypt, Arab Rep." <- "Egypt"
+# "Equatorial Guinea" <- "Eq. Guinea"
+# "Eswatini" <- "Swaziland"
+# 'Faroe Islands' <- "Faeroe Is."
+# "French Polynesia" <- "Fr. Polynesia"
+# "Gambia, The" <- "Gambia"
+# "Hong Kong SAR, China" <- "Hong Kong"
+# "Iran, Islamic Rep." <- "Iran"
+# "Korea, Rep." <- "Korea"
+# "Kyrgyz Republic" <- "Kyrgyzstan"
+# "Macao SAR, China" <- "Macao"
+# "Marshall Islands" <- "Marshall Is."
+# "Micronesia, Fed. Sts." <- "Micronesia"
+# "Russian Federation" <- "Russia"
+# "Sao Tome and Principe" <- "São Tomé and Principe" 
+# "Sint Maarten (Dutch part)" <- "Sint Maarten"
+# "Slovak Republic" <- "Slovakia"
+# "Solomon Islands" <- "Solomon Is."
+# "South Sudan" <- "S. Sudan"
+# "St. Lucia" <- "Saint Lucia"
+# "St. Vincent and the Grenadines" <- "St. Vin. and Gren."
+# "Syrian Arab Republic" <- "Syria"
+# "Venezuela, RB" <- "Venezuela"
+# "Virgin Islands (U.S.)" <- "U.S. Virgin Is."
+# "Yemen, Rep." <- "Yemen"
+
+```
 
 
 
@@ -78,7 +279,7 @@ le <- le[,-3] # remove country code
 
 Consider data on GDP and Life Expectancy of all countries between the years 1960 and 2018 [@worldbank]. Specifically, the data consists of $n$ observations $(Y_1, \vec{X_1}),...,(Y_n,\vec{X_n})$, where $Y$ represents Life Expectancy and the vector $\vec{X}$ represents GDP and Year. 
 
-On a first pass visualization of this data, we find a mostly linear relationship between Life Expectancy & Year (1), and a highly non-linear relationship between Life Expectancy & GDP (2). 
+On a first pass visualization of this data, we find a mostly linear relationship between Life Expectancy & Year (1), and a mostly logarithmic relationship between Life Expectancy & GDP (2). 
 
 ```{r motivation, echo=F, fig.align='center'}
 
@@ -152,14 +353,14 @@ The MLE of the entire partial linear model is obtained via a backfitting algorit
 \begin{equation}
 \tag{2}
   (I) \ \ \ \ \ \ \ \ \ \{g_1,...,g_p\} = \underset{g_1:g_p}{\operatorname{argmin}} \sum_{i=1}^n\left(y_i-\sum_{j=1}^{q} \beta_{j} x_{ij}-\sum_{h=1}^{p} g_{h} (x_{ih})\right) \\
-  \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \  holding \ \ \ \vec\beta \ \ \ constant
+  \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \  holding \ \ \ \vec\beta \ \ \ fixed
 \end{equation}
 
 
 \begin{equation}
 \tag{3}
   (II) \ \ \ \ \ \ \ \ \ \vec\beta = \underset{\beta}{\operatorname{argmin}} \sum_{i=1}^n\left(y_i-\sum_{h=1}^{p} g_{h} (x_{ih}) - \sum_{j=1}^{q} \beta_{j} x_{ij}\right) \\
-  \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \  holding \ \ \ \{g_1,...,g_p\} \ \ \ constant
+  \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \  holding \ \ \ \{g_1,...,g_p\} \ \ \ fixed
 \end{equation}
 
 To demonstrate the functioning of this estimator, we fit a Partial Linear Model with randomly generated pseudo-data in which there is one covariate with a non-linear monotone effect on the dependent variable. We verify in the subsequent plot that the model indeed finds the correct monotone shape (cubic) and the correct linear coefficients ($1.5, -1.5, -1, 1$)
@@ -295,7 +496,7 @@ plot(m3, ylim=c(-100,100))
 # m8 <- stepFlexmix(LifeExpectancy ~ .-1, data = le[,c(2,3,4)], k = 1:4, model = mono_reg(mon_inc_index = 1)) # step model | no intercept | no grouping | monotone year
 
 
-# m10 <- stepFlexmix(LifeExpectancy ~ .-1-Country.Name|Country.Name, data = le, k = 1:4, model = mono_reg(mon_inc_index = c(1,2))) # step model | no intercept | grouped | monotone year x monotone GDP
+m10 <- stepFlexmix(LifeExpectancy ~ .-1-Country.Name|Country.Name, data = le, k = 1:2, model = mono_reg(mon_inc_index = c(1,2))) # step model | no intercept | grouped | monotone year x monotone GDP
 
 # m12 <- stepFlexmix(LifeExpectancy ~ .-Country.Name|Country.Name, data = le, k = 1:7, model = mono_reg(mon_inc_index = 2)) # step model | with intercept | grouped | monotone year
 
@@ -303,6 +504,11 @@ plot(m3, ylim=c(-100,100))
 # m14 <- stepFlexmix(LifeExpectancy ~ .-1-Country.Name|Country.Name, data = le[,c(1,2,3)], k = 1:7, model = mono_reg(mon_inc_index = 1)) # step model | no intercept | grouped | monotone year | no linear component
 
 m15 <- stepFlexmix(LifeExpectancy ~ .-Country.Name|Country.Name, data = le, k = 1:7, model = mono_reg(mon_inc_index = 3)) # step model | with intercept | grouped | monotone GDP
+
+# TODO figure out how to add random effects. Flexmix cuts off last variable for grouping, but can lm.wfit in part_fit even take random effects?
+# TODO If fm2 is an object produced by lmer() then getME(fm2, "X") and getME(fm2, "Z") are the 𝑋 and 𝑍 matrices. See https://en.wikipedia.org/wiki/Mixed_model for full definitions.
+# https://stats.stackexchange.com/questions/325516/random-effects-design-matrix
+m16 <- stepFlexmix(LifeExpectancy ~ .-1 + (1 | Country.Name) | Country.Name, data = le, k = 1:7, model = mono_reg(mon_inc_index = 1)) # step model | no intercept | grouped | monotone year | RANDOM INTERCEPT FOR COUNTRY? :)
 
 ```
 
@@ -313,29 +519,237 @@ Finally, we return to the motivating example, building two step models: one with
 
 m9 <- stepFlexmix(LifeExpectancy ~ .-1-Country.Name|Country.Name, data = le, k = 1:7, model = mono_reg(mon_inc_index = 1)) # step model | no intercept | grouped | monotone year
 
+m10 <- stepFlexmix(LifeExpectancy ~ .-Country.Name|Country.Name, data = le, k = 1:7, model = mono_reg(mon_inc_index = 2)) # step model | with intercept | grouped | monotone year
+
 m13 <- stepFlexmix(LifeExpectancy ~ .-1-Country.Name|Country.Name, data = le, k = 1:7, model = mono_reg(mon_inc_index = 2)) # step model | no intercept | grouped | monotone GDP
 
+m14 <- stepFlexmix(LifeExpectancy ~ .-Country.Name|Country.Name, data = le, k = 1:7, model = mono_reg(mon_inc_index = 3)) # step model | with intercept | grouped | monotone GDP
 
 
 
-###
+######
 
 
 # m9
 plot(m9)
 num <- which.max(apply(m9@logLiks, 1, function(x) mean(x)))
-plot(m9@models[[num]])
-sapply(1:num, function(x) unique(le$Country.Name[m9@models[[num]]@cluster==x])) # list countries by cluster
+ # format data for adding fitted Life Expectancy curves by country
+plot_data <- le
+plot_data$Cluster <- factor(m9@models[[num]]@cluster)
+plot_data$fitle <- plot_data$LifeExpectancy - (sapply(plot_data$Cluster, function(x) m9@models[[num]]@components[[x]][[1]]@parameters$coef)*plot_data$GDP)
+plot(m9@models[[num]], subplot=2) + # overlay monotone plots with plots of individual countries
+  geom_line(data = plot_data, mapping = aes(Year, fitle, group=Country.Name, color=Cluster), alpha=0.1) +
+  scale_color_brewer(palette="Dark2") +
+                    theme_bw()
+# TODO 3-D plot?
 
+
+
+######
+
+
+# m10
+plot(m10)
+num <- which.max(apply(m10@logLiks, 1, function(x) mean(x)))
+ # format data for adding fitted Life Expectancy curves by country
+plot_data <- le
+plot_data$Cluster <- factor(m10@models[[num]]@cluster)
+plot_data$fitle <- plot_data$LifeExpectancy - apply(t(sapply(plot_data$Cluster, function(x) m10@models[[num]]@components[[x]][[1]]@parameters$coef))*cbind(rep.int(1, dim(plot_data)[2]), plot_data$GDP), 1, sum) # jesus... subtract from life expectancy the SUM of the intercept and the GDP coeffecient (of the correct cluster) x the correct country-year GDP
+plot(m10@models[[num]], subplot=2) + # overlay monotone plots with plots of individual countries
+  geom_line(data = plot_data, mapping = aes(Year, fitle, group=Country.Name, color=Cluster), alpha=0.1) +
+  scale_color_brewer(palette="Dark2") +
+                    theme_bw()
+
+
+
+
+
+
+
+############
 # m13
 plot(m13)
 num <- which.max(apply(m13@logLiks, 1, function(x) mean(x)))
-plot(m13@models[[num]])
-sapply(1:num, function(x) unique(le$Country.Name[m13@models[[num]]@cluster==x])) # list countries by cluster
+ # format data for adding fitted Life Expectancy curves by country
+plot_data <- le
+plot_data$Cluster <- factor(m13@models[[num]]@cluster)
+plot_data$fitle <- plot_data$LifeExpectancy - (sapply(plot_data$Cluster, function(x) m13@models[[num]]@components[[x]][[1]]@parameters$coef)*plot_data$Year)
+plot(m13@models[[num]], log=T, subplot=2) + # overlay monotone plots with plots of individual countries
+  geom_line(data = plot_data, mapping = aes(GDP, fitle, group=Country.Name, color=Cluster), alpha=0.1) +
+  scale_color_brewer(palette="Dark2") +
+  theme_bw() + 
+  scale_x_log10() # set to log scale
+# TODO 3-D plot?
+
+
+############
+# m14
+plot(m14)
+num <- which.max(apply(m14@logLiks, 1, function(x) mean(x)))
+ # format data for adding fitted Life Expectancy curves by country
+plot_data <- le
+plot_data$Cluster <- factor(m14@models[[num]]@cluster)
+plot_data$fitle <- plot_data$LifeExpectancy - apply(t(sapply(plot_data$Cluster, function(x) m14@models[[num]]@components[[x]][[1]]@parameters$coef))*cbind(rep.int(1, dim(plot_data)[2]), plot_data$Year), 1, sum) # jesus... subtract from life expectancy the SUM of the intercept and the GDP coeffecient (of the correct cluster) x the correct country-year GDP
+plot(m14@models[[num]], log=T, subplot=2) + # overlay monotone plots with plots of individual countries
+  geom_line(data = plot_data, mapping = aes(GDP, fitle, group=Country.Name, color=Cluster), alpha=0.1) +
+  scale_color_brewer(palette="Dark2") +
+  theme_bw() + 
+  scale_x_log10() # set to log scale
+
 
 ```
 
 
+```{r worldmaps, eval=F}
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+mod9 <- m9@models[[which.min(AIC(m9))]]
+
+maxpost <- apply(mod9@posterior$scaled, 1, function(x) max(x))
+clustdat <- tibble(le$Country.Name, mod9@cluster, maxpost)
+names(clustdat) <- c("name", "cluster", "posterior")
+plot_data <- merge(world, clustdat, by = "name", all.x = TRUE)
+
+gg <- ggplot()
+pal <- brewer.pal(length(mod9@components), "Dark2")
+
+for(j in 1:length(mod9@components)){
+  gg <- gg + geom_sf(data = plot_data[plot_data$cluster==j,], aes(fill = posterior)) + 
+  scale_fill_gradient2(paste("Cluster", j), limits=c(0,1), low = "white", high = pal[j]) +
+  new_scale("fill") 
+}
+
+gg <- gg + theme_minimal() +
+  theme(legend.direction = "horizontal") +
+  ggtitle("Map of Country Clusters")
+
+# TODO extract legend grob, edit, and replace with title. If this doesnt work, we resort to adding a text annotation
+g <- ggplotGrob(gg) # Get the ggplot grob
+leg <- g$grobs[[which(g$layout$name == "guide-box")]]$grobs[[1]] # Get the legend
+title_grob <- textGrob("Posterior", gp = gpar(fontsize = 10))
+table_grob <- gtable_add_rows(leg, heights = grobHeight(title_grob) + unit(5,'mm'), pos = 0)
+table_grob <- gtable_add_grob(table_grob, title_grob, 1, 1, 1, ncol(table_grob), clip = "off")
+g$grobs[[which(g$layout$name == "guide-box")]]$grobs[[1]] <- table_grob # replace original grob with edited grob
+
+plot(g) # explicitly call plot()
+
+
+
+
+
+##################
+
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+mod10 <- m10@models[[which.min(AIC(m10))]]
+
+maxpost <- apply(mod10@posterior$scaled, 1, function(x) max(x))
+clustdat <- tibble(le$Country.Name, mod10@cluster, maxpost)
+names(clustdat) <- c("name", "cluster", "posterior")
+plot_data <- merge(world, clustdat, by = "name", all.x = TRUE)
+
+gg <- ggplot()
+pal <- brewer.pal(length(mod10@components), "Dark2")
+
+for(j in 1:length(mod10@components)){
+  gg <- gg + geom_sf(data = plot_data[plot_data$cluster==j,], aes(fill = posterior)) +
+  scale_fill_gradient2(paste("Cluster", j), limits=c(0,1), low = "white", high = pal[j]) +
+  new_scale("fill")
+}
+
+gg <- gg + theme_minimal() +
+  theme(legend.direction = "horizontal") +
+  ggtitle("Map of Country Clusters")
+
+# TODO extract legend grob, edit, and replace with title. If this doesnt work, we resort to adding a text annotation
+g <- ggplotGrob(gg) # Get the ggplot grob
+leg <- g$grobs[[which(g$layout$name == "guide-box")]]$grobs[[1]] # Get the legend
+title_grob <- textGrob("Posterior", gp = gpar(fontsize = 10))
+table_grob <- gtable_add_rows(leg, heights = grobHeight(title_grob) + unit(5,'mm'), pos = 0)
+table_grob <- gtable_add_grob(table_grob, title_grob, 1, 1, 1, ncol(table_grob), clip = "off")
+g$grobs[[which(g$layout$name == "guide-box")]]$grobs[[1]] <- table_grob # replace original grob with edited grob
+
+plot(g) # explicitly call plot()
+
+
+
+##################
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+mod13 <- m13@models[[which.min(AIC(m13))]]
+
+
+maxpost <- apply(mod13@posterior$scaled, 1, function(x) max(x))
+clustdat <- tibble(le$Country.Name, mod13@cluster, maxpost)
+names(clustdat) <- c("name", "cluster", "posterior")
+plot_data <- merge(world, clustdat, by = "name", all.x = TRUE)
+
+gg <- ggplot()
+pal <- brewer.pal(length(mod13@components), "Dark2")
+
+for(j in 1:length(mod13@components)){
+  gg <- gg + geom_sf(data = plot_data[plot_data$cluster==j,], aes(fill = posterior)) + 
+  scale_fill_gradient2(paste("Cluster", j), limits=c(0,1), low = "white", high = pal[j]) +
+  theme(legend.direction = "horizontal") +
+ 
+  new_scale("fill")    
+}
+
+gg <- gg + theme_minimal() + 
+  theme(legend.direction = "horizontal") + 
+  ggtitle("Map of Country Clusters")
+
+# TODO extract legend grob, edit, and replace with title. If this doesnt work, we resort to adding a text annotation
+g <- ggplotGrob(gg) # Get the ggplot grob
+leg <- g$grobs[[which(g$layout$name == "guide-box")]]$grobs[[1]] # Get the legend
+title_grob <- textGrob("Posterior", gp = gpar(fontsize = 10))
+table_grob <- gtable_add_rows(leg, heights = grobHeight(title_grob) + unit(5,'mm'), pos = 0)
+table_grob <- gtable_add_grob(table_grob, title_grob, 1, 1, 1, ncol(table_grob), clip = "off")
+g$grobs[[which(g$layout$name == "guide-box")]]$grobs[[1]] <- table_grob # replace original grob with edited grob
+
+plot(g) # explicitly call plot()
+
+
+
+
+
+##################
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+mod14 <- m14@models[[which.min(AIC(m14))]]
+
+
+maxpost <- apply(mod14@posterior$scaled, 1, function(x) max(x))
+clustdat <- tibble(le$Country.Name, mod14@cluster, maxpost)
+names(clustdat) <- c("name", "cluster", "posterior")
+plot_data <- merge(world, clustdat, by = "name", all.x = TRUE)
+
+gg <- ggplot()
+pal <- brewer.pal(length(mod14@components), "Dark2")
+
+for(j in 1:length(mod14@components)){
+  gg <- gg + geom_sf(data = plot_data[plot_data$cluster==j,], aes(fill = posterior)) +
+  scale_fill_gradient2(paste("Cluster", j), limits=c(0,1), low = "white", high = pal[j]) +
+  theme(legend.direction = "horizontal") +
+
+  new_scale("fill")
+}
+
+gg <- gg + theme_minimal() +
+  theme(legend.direction = "horizontal") +
+  ggtitle("Map of Country Clusters")
+
+# TODO extract legend grob, edit, and replace with title. If this doesnt work, we resort to adding a text annotation
+g <- ggplotGrob(gg) # Get the ggplot grob
+leg <- g$grobs[[which(g$layout$name == "guide-box")]]$grobs[[1]] # Get the legend
+title_grob <- textGrob("Posterior", gp = gpar(fontsize = 10))
+table_grob <- gtable_add_rows(leg, heights = grobHeight(title_grob) + unit(5,'mm'), pos = 0)
+table_grob <- gtable_add_grob(table_grob, title_grob, 1, 1, 1, ncol(table_grob), clip = "off")
+g$grobs[[which(g$layout$name == "guide-box")]]$grobs[[1]] <- table_grob # replace original grob with edited grob
+
+plot(g) # explicitly call plot()
+
+```
 
 
 ### References

@@ -13,7 +13,6 @@
 library(gridExtra)
 library(dplyr)
 
-# TODO replace monoreg() with cpav() in part_fit()
 # TODO apparently, cpav with any more than 2 components overfits infintely if the error of the
 # original Y construction is small....
 # inc_index and dec_index are the indices of x_mat which are supposed to have an isotonic and antitonic
@@ -153,7 +152,7 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
   x <- as.matrix(x) # cast again. hacky but necessary?
   
   
-  # TODO make sure y and wates is not multivariate
+  # make sure y and wates is not multivariate
   if(length(y) != dim(x)[1] | length(y) != length(wates)) stop("Inputs are not of the same dimension!")
   
   # take monotone indices of previous component
@@ -283,7 +282,7 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
   # mod must have: coef attribute, sigma attribute, cov attribute, df attribute, ..., and 
   # may have mon_inc_index and mon_dec_index attributes
   mod <- list(coef = NULL, fitted_pava = NULL, sigma = NULL, df = NULL,
-              mon_inc_index = NULL, mon_dec_index = NULL, iterations = NULL)
+              mon_inc_index = NULL, mon_dec_index = NULL, iterations = NULL, mono_names=NULL)
   
   mod$coef <- betas
   mod$fitted_pava <- yhat

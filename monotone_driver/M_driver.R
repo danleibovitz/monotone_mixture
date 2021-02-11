@@ -27,7 +27,8 @@ setClass(
   # allow mon_index to take either numeric or NULL
   slots=c(mon_inc_index="numericOrNULL", 
           mon_dec_index="numericOrNULL",
-          mon_obj="matrix"
+          mon_obj="matrix",
+          mono_names="characterOrNULL"
           )
 ) 
 
@@ -95,7 +96,8 @@ mono_reg <- function (formula = .~., mon_inc_names = NULL,
                       df = fit$df, logLik = logLik, predict = predict,
                       mon_inc_index = fit$mon_inc_index,
                       mon_dec_index = fit$mon_dec_index,
-                      mon_obj = fit$fitted_pava)
+                      mon_obj = fit$fitted_pava,
+                      mono_names = fit$mono_names)
   }
   
   # @fit: A function(x,y,w) returning an object of class "FLXcomponent"
@@ -104,7 +106,17 @@ mono_reg <- function (formula = .~., mon_inc_names = NULL,
                          mon_inc_names = retval@mon_inc_names,
                          mon_dec_names = retval@mon_dec_names, ...) {
     
-                 
+                  
+                  if(is.null(mon_inc_index) & is.null(mon_dec_index)){
+                    Discover correct monotone indices
+                  }
+                  if(is.null(mon_inc_names) & is.null(mon_dec_names)){
+                    Discover correct monotone names
+                  }
+                  print(colnames(x))
+                  # TODO exclude monotone fits of factors
+                  # if(any(apply(x, 2, function(x) is.factor(x)))) stop("x cannot have factor columns as monotone components")
+                  # TODO parse formula and only take indices, as opposed to names:
 
                   fit <- part_fit(x, y, w, component, mon_inc_index=mon_inc_index, 
                                   mon_dec_index=mon_dec_index, ...)
