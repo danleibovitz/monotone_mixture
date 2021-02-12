@@ -25,6 +25,7 @@ library(gtable)
 library(ggplot2)
 library(RColorBrewer)
 library(grid)
+library(ggpubr)
 source("monotone_driver/part_fit.R")
 source("monotone_driver/M_driver.R")
 source("pseudo_data/data_generator.R")
@@ -202,46 +203,6 @@ gdp2$Country.Name[which(gdp2$Country.Name %in% c(
 gdp2$Country.Name <- as.factor(gdp2$Country.Name)
 
 
-
-# "Antigua and Barbuda"<- "Antigua and Barb."
-# "Bahamas, The" <- "Bahamas"
-# "Bosnia and Herzegovina"  <- "Bosnia and Herz." 
-# "Brunei Darussalam" <- "Brunei" 
-# "Cabo Verde" <- "Cape Verde" 
-# "Cayman Islands" <- "Cayman Is." 
-# "Central African Republic" <- "Central African Rep." 
-# "Congo, Dem. Rep." <- "Dem. Rep. Congo"
-# "Congo, Rep." <- "Congo"
-# "Cote d'Ivoire" <- "Côte d'Ivoire"
-# "Curacao" <- "Curaçao"
-# "Czech Republic" <- "Czech Rep."
-# "Dominican Republic" <- "Dominican Rep."
-# "Egypt, Arab Rep." <- "Egypt"
-# "Equatorial Guinea" <- "Eq. Guinea"
-# "Eswatini" <- "Swaziland"
-# 'Faroe Islands' <- "Faeroe Is."
-# "French Polynesia" <- "Fr. Polynesia"
-# "Gambia, The" <- "Gambia"
-# "Hong Kong SAR, China" <- "Hong Kong"
-# "Iran, Islamic Rep." <- "Iran"
-# "Korea, Rep." <- "Korea"
-# "Kyrgyz Republic" <- "Kyrgyzstan"
-# "Macao SAR, China" <- "Macao"
-# "Marshall Islands" <- "Marshall Is."
-# "Micronesia, Fed. Sts." <- "Micronesia"
-# "Russian Federation" <- "Russia"
-# "Sao Tome and Principe" <- "São Tomé and Principe" 
-# "Sint Maarten (Dutch part)" <- "Sint Maarten"
-# "Slovak Republic" <- "Slovakia"
-# "Solomon Islands" <- "Solomon Is."
-# "South Sudan" <- "S. Sudan"
-# "St. Lucia" <- "Saint Lucia"
-# "St. Vincent and the Grenadines" <- "St. Vin. and Gren."
-# "Syrian Arab Republic" <- "Syria"
-# "Venezuela, RB" <- "Venezuela"
-# "Virgin Islands (U.S.)" <- "U.S. Virgin Is."
-# "Yemen, Rep." <- "Yemen"
-
 ```
 
 
@@ -274,6 +235,10 @@ continent <- merge(le, continent, by.x = c("Country.Code"), by.y = c("Country.Co
 
 le <- le[,-3] # remove country code
 ```
+
+&nbsp;  
+&nbsp;  
+&nbsp;  
 
 ### Motivating Example
 
@@ -318,6 +283,9 @@ One model that can accomplish this clustering task while incorporating monotonic
 
 
 
+&nbsp;  
+&nbsp;  
+&nbsp;  
 
 ### Partial Linear Models with Monotonicity Constraints
 
@@ -365,7 +333,7 @@ The MLE of the entire partial linear model is obtained via a backfitting algorit
 
 To demonstrate the functioning of this estimator, we fit a Partial Linear Model with randomly generated pseudo-data in which there is one covariate with a non-linear monotone effect on the dependent variable. We verify in the subsequent plot that the model indeed finds the correct monotone shape (cubic) and the correct linear coefficients ($1.5, -1.5, -1, 1$)
 
-```{r firstmod}
+```{r firstmod, fig.align='center'}
 # data with 1 monotone covariate
 ################
 X <- cbind(
@@ -385,16 +353,25 @@ names(df_1) <- c("Y", "X1", "X2", "X3", "X4", "X5")
 ################
 
 
+# build model
 m1 <- part_fit(x = df_1[,2:6], y = df_1$Y, mon_inc_index = 1)
 
+# plot fitted model
 plot(m1)
+
+# print coefficient estimates
 m1$coef
 ```
 
+&nbsp;  
+&nbsp;  
+
 We can optionally fit more complex partial linear models by, for example, adding monotone covariates. Below, we fit and plot a partial linear model with 1 monotone non-decreasing covariate and 2 monotone non-increasing covariates.
 
+&nbsp;  
+&nbsp;  
 
-```{r firstmod_plot}
+```{r firstmod_plot, fig.align='center'}
 
 # data with 3 monotone covariates
 ################
@@ -417,13 +394,17 @@ names(df_2) <- c("Y", "X1", "X2", "X3", "X4", "X5", "W")
 ################
 
 
-
+# build model
 model <- part_fit(x = df_2[,2:6], y = df_2$Y, mon_inc_index = 1, mon_dec_index = c(2,3), wates = df_2$W)
 
+# plot fitted model
 plot(model)  
 
 ```
 
+&nbsp;  
+&nbsp;  
+&nbsp;  
 
 ### Finite Mixture of Regression Models
 
@@ -450,6 +431,9 @@ By extension, the EM algorithm also allows us to compute the marginal probabilit
   P(Y_i = y) \ =\ \sum_{k=1}^{K}\pi_kP(Y_i = y\ |\ X_i = x, \Theta_k,\ Z_{ik})
 \end{equation}
 
+&nbsp;  
+&nbsp;  
+&nbsp;  
 
 ### Flexmix Extension
 
@@ -458,7 +442,7 @@ Here we demonstrate the results of the estimator described above, combinbing the
 
 
 
-```{r pseudo_mixture, warning=F}
+```{r pseudo_mixture, warning=F, fig.align='center'}
 # data with 4 latent categories
 ################
 X <- cbind(
@@ -481,10 +465,10 @@ names(df_3) <- c("Y", "X1", "X2", "X3", "X4", "X5")
 
 
 # build model
-m3 <- flexmix(Y ~ .-1, data = df_3[,1:6], k = 4, model = mono_reg(mon_inc_index = 1), control = list(minprior = 0.1))
+m3 <- flexmix(Y ~ ., data = df_3, k = 4, model = mono_reg(mon_inc_names = "X1"), control = list(minprior = 0.1))
 
 # plot fitted model
-plot(m3, ylim=c(-100,100))
+plot(m3, ylim=c(-100,100), palet="Dark2", root_scale="sqrt")
 
 ```
 
@@ -511,24 +495,40 @@ m15 <- stepFlexmix(LifeExpectancy ~ .-Country.Name|Country.Name, data = le, k = 
 m16 <- stepFlexmix(LifeExpectancy ~ .-1 + (1 | Country.Name) | Country.Name, data = le, k = 1:7, model = mono_reg(mon_inc_index = 1)) # step model | no intercept | grouped | monotone year | RANDOM INTERCEPT FOR COUNTRY? :)
 
 ```
+&nbsp;  
+&nbsp;  
 
-Finally, we return to the motivating example, building two step models: one with `Year` as the monotone covariate, one with `GDP` as the monotone covariate. Each model is in fact a series of 21 mixture models, 3 for each of $k = 1,...,7$. For each series, we plot the AIC and BIC per $k$, the monotone fits for the model $k$ with the minimum AIC, and a list of countries within each cluster.
+Next, we return to the motivating example, building four step models: with and without an intercept, and alternately with `Year` or `GDP` as the monotone covariate. Each model is in fact a series of 21 mixture models, 3 for each of $k = 1,...,7$. For each series, we plot the AIC and BIC per $k$, the rootogram of the model $k$ with the lowest AIC, and the monotone fits for the model $k$ with the lowest AIC.
 
-```{r le_model, eval=T}
+&nbsp;  
+&nbsp;  
+```{r le_mod9, eval=T, results=F}
 # Life expectancy models
 
-m9 <- stepFlexmix(LifeExpectancy ~ .-1-Country.Name|Country.Name, data = le, k = 1:7, model = mono_reg(mon_inc_index = 1)) # step model | no intercept | grouped | monotone year
+m9 <- stepFlexmix(LifeExpectancy ~ .-1-Country.Name|Country.Name, data = le, k = 1:5, model = mono_reg(mon_inc_names = "Year")) # step model | no intercept | grouped | monotone year
 
-m10 <- stepFlexmix(LifeExpectancy ~ .-Country.Name|Country.Name, data = le, k = 1:7, model = mono_reg(mon_inc_index = 2)) # step model | with intercept | grouped | monotone year
+```
 
-m13 <- stepFlexmix(LifeExpectancy ~ .-1-Country.Name|Country.Name, data = le, k = 1:7, model = mono_reg(mon_inc_index = 2)) # step model | no intercept | grouped | monotone GDP
+```{r le_mod10, eval=T, results=F}
 
-m14 <- stepFlexmix(LifeExpectancy ~ .-Country.Name|Country.Name, data = le, k = 1:7, model = mono_reg(mon_inc_index = 3)) # step model | with intercept | grouped | monotone GDP
+m10 <- stepFlexmix(LifeExpectancy ~ .-Country.Name|Country.Name, data = le, k = 1:5, model = mono_reg(mon_inc_names = "Year")) # step model | with intercept | grouped | monotone year
+
+```
+
+```{r le_mod13, eval=T, results=F}
+
+m13 <- stepFlexmix(LifeExpectancy ~ .-1-Country.Name|Country.Name, data = le, k = 1:5, model = mono_reg(mon_inc_names = "GDP")) # step model | no intercept | grouped | monotone GDP
+
+```
+
+```{r le_mod14, eval=T, results=F}
+
+m14 <- stepFlexmix(LifeExpectancy ~ .-Country.Name|Country.Name, data = le, k = 1:5, model = mono_reg(mon_inc_names = "GDP")) # step model | with intercept | grouped | monotone GDP
+
+```
 
 
-
-######
-
+```{r le_mod_plot, eval=T, echo=F, message=F, fig.align='center'}
 
 # m9
 plot(m9)
@@ -593,14 +593,17 @@ plot_data$fitle <- plot_data$LifeExpectancy - apply(t(sapply(plot_data$Cluster, 
 plot(m14@models[[num]], log=T, subplot=2) + # overlay monotone plots with plots of individual countries
   geom_line(data = plot_data, mapping = aes(GDP, fitle, group=Country.Name, color=Cluster), alpha=0.1) +
   scale_color_brewer(palette="Dark2") +
-  theme_bw() + 
+  theme_bw() +
   scale_x_log10() # set to log scale
 
 
 ```
+&nbsp;  
+&nbsp;  
 
+Finally, we plot the distribution of clusters within the lowest-AIC model of each step-model series, projected onto a world map. In these world map plots, the colors of each cluster span a spectrum from white to full-color, representing the strength of the posterior and the confidence of the model in placing a given country within a given cluster. The world-maps indicate what the rootograms had previously indicated, namely that the resulting models are extremely confident about the clustering of nearly all countries.
 
-```{r worldmaps, eval=F}
+```{r worldmaps, eval=T, echo=F, message=F, fig.align='center'}
 world <- ne_countries(scale = "medium", returnclass = "sf")
 
 mod9 <- m9@models[[which.min(AIC(m9))]]
@@ -621,17 +624,20 @@ for(j in 1:length(mod9@components)){
 
 gg <- gg + theme_minimal() +
   theme(legend.direction = "horizontal") +
-  ggtitle("Map of Country Clusters")
+  ggtitle("Map of Country Clusters in m9") 
 
-# TODO extract legend grob, edit, and replace with title. If this doesnt work, we resort to adding a text annotation
-g <- ggplotGrob(gg) # Get the ggplot grob
-leg <- g$grobs[[which(g$layout$name == "guide-box")]]$grobs[[1]] # Get the legend
-title_grob <- textGrob("Posterior", gp = gpar(fontsize = 10))
-table_grob <- gtable_add_rows(leg, heights = grobHeight(title_grob) + unit(5,'mm'), pos = 0)
-table_grob <- gtable_add_grob(table_grob, title_grob, 1, 1, 1, ncol(table_grob), clip = "off")
-g$grobs[[which(g$layout$name == "guide-box")]]$grobs[[1]] <- table_grob # replace original grob with edited grob
+gg
 
-plot(g) # explicitly call plot()
+
+# # TODO extract legend grob, edit, and replace with title. If this doesnt work, we resort to adding a text annotation
+# g <- ggplotGrob(gg) # Get the ggplot grob
+# leg <- g$grobs[[which(g$layout$name == "guide-box")]]$grobs[[1]] # Get the legend
+# title_grob <- textGrob("Posterior", gp = gpar(fontsize = 10))
+# table_grob <- gtable_add_rows(leg, heights = grobHeight(title_grob) + unit(5,'mm'), pos = 0)
+# table_grob <- gtable_add_grob(table_grob, title_grob, 1, 1, 1, ncol(table_grob), clip = "off")
+# g$grobs[[which(g$layout$name == "guide-box")]]$grobs[[1]] <- table_grob # replace original grob with edited grob
+# 
+# plot(g) # explicitly call plot()
 
 
 
@@ -659,17 +665,19 @@ for(j in 1:length(mod10@components)){
 
 gg <- gg + theme_minimal() +
   theme(legend.direction = "horizontal") +
-  ggtitle("Map of Country Clusters")
+  ggtitle("Map of Country Clusters in m10")
 
-# TODO extract legend grob, edit, and replace with title. If this doesnt work, we resort to adding a text annotation
-g <- ggplotGrob(gg) # Get the ggplot grob
-leg <- g$grobs[[which(g$layout$name == "guide-box")]]$grobs[[1]] # Get the legend
-title_grob <- textGrob("Posterior", gp = gpar(fontsize = 10))
-table_grob <- gtable_add_rows(leg, heights = grobHeight(title_grob) + unit(5,'mm'), pos = 0)
-table_grob <- gtable_add_grob(table_grob, title_grob, 1, 1, 1, ncol(table_grob), clip = "off")
-g$grobs[[which(g$layout$name == "guide-box")]]$grobs[[1]] <- table_grob # replace original grob with edited grob
+gg
 
-plot(g) # explicitly call plot()
+# # TODO extract legend grob, edit, and replace with title. If this doesnt work, we resort to adding a text annotation
+# g <- ggplotGrob(gg) # Get the ggplot grob
+# leg <- g$grobs[[which(g$layout$name == "guide-box")]]$grobs[[1]] # Get the legend
+# title_grob <- textGrob("Posterior", gp = gpar(fontsize = 10))
+# table_grob <- gtable_add_rows(leg, heights = grobHeight(title_grob) + unit(5,'mm'), pos = 0)
+# table_grob <- gtable_add_grob(table_grob, title_grob, 1, 1, 1, ncol(table_grob), clip = "off")
+# g$grobs[[which(g$layout$name == "guide-box")]]$grobs[[1]] <- table_grob # replace original grob with edited grob
+# 
+# plot(g) # explicitly call plot()
 
 
 
@@ -697,17 +705,18 @@ for(j in 1:length(mod13@components)){
 
 gg <- gg + theme_minimal() + 
   theme(legend.direction = "horizontal") + 
-  ggtitle("Map of Country Clusters")
+  ggtitle("Map of Country Clusters in m13")
+
 
 # TODO extract legend grob, edit, and replace with title. If this doesnt work, we resort to adding a text annotation
 g <- ggplotGrob(gg) # Get the ggplot grob
 leg <- g$grobs[[which(g$layout$name == "guide-box")]]$grobs[[1]] # Get the legend
-title_grob <- textGrob("Posterior", gp = gpar(fontsize = 10))
+title_grob <- textGrob("Posterior", gp = gpar(fontsize = 12))
 table_grob <- gtable_add_rows(leg, heights = grobHeight(title_grob) + unit(5,'mm'), pos = 0)
 table_grob <- gtable_add_grob(table_grob, title_grob, 1, 1, 1, ncol(table_grob), clip = "off")
 g$grobs[[which(g$layout$name == "guide-box")]]$grobs[[1]] <- table_grob # replace original grob with edited grob
 
-plot(g) # explicitly call plot()
+ggpubr::as_ggplot(g) + theme_minimal() # cast back to ggplot, and print
 
 
 
@@ -737,7 +746,7 @@ for(j in 1:length(mod14@components)){
 
 gg <- gg + theme_minimal() +
   theme(legend.direction = "horizontal") +
-  ggtitle("Map of Country Clusters")
+  ggtitle("Map of Country Clusters in m14")
 
 # TODO extract legend grob, edit, and replace with title. If this doesnt work, we resort to adding a text annotation
 g <- ggplotGrob(gg) # Get the ggplot grob
@@ -747,9 +756,55 @@ table_grob <- gtable_add_rows(leg, heights = grobHeight(title_grob) + unit(5,'mm
 table_grob <- gtable_add_grob(table_grob, title_grob, 1, 1, 1, ncol(table_grob), clip = "off")
 g$grobs[[which(g$layout$name == "guide-box")]]$grobs[[1]] <- table_grob # replace original grob with edited grob
 
-plot(g) # explicitly call plot()
+ggpubr::as_ggplot(g) + theme_minimal() # cast back to ggplot, and print
+
+
+
+# ##################
+# # world map generation for faded color representing gradient of posterior between 0 and 1
+# world <- ne_countries(scale = "medium", returnclass = "sf")
+# 
+# mod00 <- m00@models[[which.min(AIC(m00))]]
+# 
+# 
+# maxpost <- apply(mod00@posterior$scaled, 1, function(x) max(x))
+# clustdat <- tibble(le$Country.Name, mod00@cluster, maxpost)
+# names(clustdat) <- c("name", "cluster", "posterior")
+# plot_data <- merge(world, clustdat, by = "name", all.x = TRUE)
+# 
+# gg <- ggplot()
+# pal <- brewer.pal(length(mod00@components), "Dark2")
+# 
+# for(j in 1:length(mod00@components)){
+#   gg <- gg + geom_sf(data = plot_data[plot_data$cluster==j,], aes(fill = posterior)) +
+#   scale_fill_gradient2(paste("Cluster", j), limits=c(0,1), low = "white", high = pal[j]) +
+#   theme(legend.direction = "horizontal") +
+# 
+#   new_scale("fill")
+# }
+# 
+# gg <- gg + theme_minimal() +
+#   theme(legend.direction = "horizontal") +
+#   ggtitle("Map of Country Clusters")
+# 
+# gg
+# 
+# # TODO extract legend grob, edit, and replace with title. If this doesnt work, we resort to adding a text annotation
+# g <- ggplotGrob(gg) # Get the ggplot grob
+# leg <- g$grobs[[which(g$layout$name == "guide-box")]]$grobs[[1]] # Get the legend
+# title_grob <- textGrob("Posterior", gp = gpar(fontsize = 10))
+# table_grob <- gtable_add_rows(leg, heights = grobHeight(title_grob) + unit(5,'mm'), pos = 0)
+# table_grob <- gtable_add_grob(table_grob, title_grob, 1, 1, 1, ncol(table_grob), clip = "off")
+# g$grobs[[which(g$layout$name == "guide-box")]]$grobs[[1]] <- table_grob # replace original grob with edited grob
+# 
+# plot(g) # explicitly call plot()
 
 ```
-
+&nbsp;  
+&nbsp;  
+&nbsp;  
+&nbsp;  
+&nbsp;  
+&nbsp;  
 
 ### References

@@ -1,8 +1,6 @@
 # define fitting function for partial linear model with arbitrary monotone-constrained component
 
 # Wishlist:
-# - provide part_fit() return object with a plot() method that plots monotone component(s)
-# - provide 
 # - select monotone component by name instead of index
 # - can part_fit take factors as monotone components?
 # - Confidence intervals for linear components
@@ -130,8 +128,7 @@ get_pred <- function(mr_obj, xvals){
 # TODO max_iter must be passed through M_driver just like mon_inc_index, or 
 # else user will not be able to specify the max_iter param
 part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL, max_iter=NULL, 
-                     component = NULL, na.rm=T, mono_names = NULL, ...){
-  
+                     component = NULL, na.rm=T, mono_inc_names = NULL, mon_dec_names = NULL, ...){
 
   # TODO cast y and wates to matrices ?
   # TODO correct behaviour for if x is ONLY a vector
@@ -202,7 +199,7 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
   if(length(c(inc_ind, dec_ind)) > ncol(x)) stop("Number of proposed monotonic relationships exceeds columns of x.")
   
   # TODO get names of monotone components for plotting
-  # if(is.null(mono_names)){
+  # if(is.null(c(mono_inc_names, mon_dec_names))){
   #   # set names according to monotone indices. First increasing indices, then decreasing indices
   # }
   
@@ -218,7 +215,8 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
     # mod must have: coef attribute, sigma attribute, cov attribute, df attribute, ..., and 
     # may have mon_inc_index and mon_dec_index attributes
     mod <- list(coef = NULL, fitted_pava = NULL, sigma = NULL, df = NULL,
-                mon_inc_index = NULL, mon_dec_index = NULL, iterations = NULL, mono_names = NULL)
+                mon_inc_index = NULL, mon_dec_index = NULL, iterations = NULL, 
+                mono_inc_names = NULL, mon_dec_names = NULL)
   
     mod$coef <- NULL
     mod$fitted_pava <- yhat
@@ -282,7 +280,8 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
   # mod must have: coef attribute, sigma attribute, cov attribute, df attribute, ..., and 
   # may have mon_inc_index and mon_dec_index attributes
   mod <- list(coef = NULL, fitted_pava = NULL, sigma = NULL, df = NULL,
-              mon_inc_index = NULL, mon_dec_index = NULL, iterations = NULL, mono_names=NULL)
+              mon_inc_index = NULL, mon_dec_index = NULL, iterations = NULL, 
+              mono_inc_names = NULL, mon_dec_names = NULL)
   
   mod$coef <- betas
   mod$fitted_pava <- yhat

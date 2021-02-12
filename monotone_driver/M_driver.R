@@ -28,7 +28,8 @@ setClass(
   slots=c(mon_inc_index="numericOrNULL", 
           mon_dec_index="numericOrNULL",
           mon_obj="matrix",
-          mono_names="characterOrNULL"
+          mon_inc_names="characterOrNULL",
+          mon_dec_names="characterOrNULL"
           )
 ) 
 
@@ -60,8 +61,8 @@ mono_reg <- function (formula = .~., mon_inc_names = NULL,
   retval <- new("FLXM_monoreg", weighted = TRUE,
                 formula = formula,
                 name = "partially linear monotonic regression",
-                mon_inc_index= mon_inc_index,
-                mon_dec_index= mon_dec_index, 
+                mon_inc_index= sort(mon_inc_index),
+                mon_dec_index= sort(mon_dec_index), 
                 mon_inc_names= mon_inc_names,
                 mon_dec_names= mon_dec_names) 
   
@@ -97,7 +98,8 @@ mono_reg <- function (formula = .~., mon_inc_names = NULL,
                       mon_inc_index = fit$mon_inc_index,
                       mon_dec_index = fit$mon_dec_index,
                       mon_obj = fit$fitted_pava,
-                      mono_names = fit$mono_names)
+                      mon_inc_names = fit$mon_inc_names,
+                      mon_dec_names = fit$mon_dec_names)
   }
   
   # @fit: A function(x,y,w) returning an object of class "FLXcomponent"
@@ -108,15 +110,28 @@ mono_reg <- function (formula = .~., mon_inc_names = NULL,
     
                   
                   if(is.null(mon_inc_index) & is.null(mon_dec_index)){
-                    Discover correct monotone indices
+                    
+                    # if not all monotone names are in the design matrix, stop & print the name that is missing
+                    if(!all(c(mon_inc_names, mon_dec_names) %in% colnames(x))){
+                      stop(paste(setdiff(c(mon_inc_names, mon_dec_names), colnames(x)),
+                                 "could not be found in the model matrix. Check your spelling."))
+                    } 
+                    # Discover correct monotone indices
+                    if(any(colnames(x) %in% mon_inc_names)){
+                      mon_inc_index <- which(colnames(x) %in% mon_inc_names)
+                    }
+                    if(any(colnames(x) %in% mon_dec_names)){
+                      mon_dec_index <- which(colnames(x) %in% mon_dec_names)
+                    }
                   }
                   if(is.null(mon_inc_names) & is.null(mon_dec_names)){
-                    Discover correct monotone names
+                    # Discover correct monotone names
+                    mon_inc_names <- colnames(x)[sort(mon_inc_index)]
+                    mon_dec_names <- colnames(x)[sort(mon_dec_index)]
                   }
-                  print(colnames(x))
+    
                   # TODO exclude monotone fits of factors
                   # if(any(apply(x, 2, function(x) is.factor(x)))) stop("x cannot have factor columns as monotone components")
-                  # TODO parse formula and only take indices, as opposed to names:
 
                   fit <- part_fit(x, y, w, component, mon_inc_index=mon_inc_index, 
                                   mon_dec_index=mon_dec_index, ...)

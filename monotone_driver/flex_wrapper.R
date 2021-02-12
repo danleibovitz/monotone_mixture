@@ -72,15 +72,18 @@ setMethod('plot',  signature(x="flexmix", y="missing"),
             if(is.null(palet)){
               palet <- "Accent"
             }
-            if(is.null(x@components[[1]][[1]]@mono_names)){
-              xnames <- sapply(1:dim(x@components[[1]][[1]]@mon_obj)[2], function(x) paste0("X", x))
-              mono_names <- c("Y", xnames)
-            }
-            else{
-              mono_names <- c(x@formula[[2]], x@components[[1]][[1]]@mono_names)
-            }
+            
            
-  if(is(x@components[[1]][[1]], "FLX_monoreg_component")){
+  if(is(x@components[[1]][[1]], "FLX_monoreg_component")){ # check that this is a mixture of part_fits
+    # assign appropriate names for graph labelling
+    if(is.null( c(x@model[[1]]@mon_inc_names, x@model[[1]]@mon_dec_names) )){
+      xnames <- sapply(1:dim(x@components[[1]][[1]]@mon_obj)[2], function(x) paste0("X", x))
+      mono_names <- c("Y", xnames)
+    }
+    else{
+      mono_names <- c(x@formula[[2]], c(x@model[[1]]@mon_inc_names, x@model[[1]]@mon_dec_names))
+    }
+    
             if(dim( x@components[[1]][[1]]@mon_obj )[2] > 1){ # get dimension of monotone components by reading columns of fitted_pava object
               np <- list()
               for(i in 1:dim( x@components[[1]][[1]]@mon_obj )[2]){
@@ -225,8 +228,16 @@ setMethod('plot',  signature(x="flexmix", y="missing"),
                    x = "Posteriors",
                    y = "Count")
             
-            if(root_scale == "sqrt"){rg <- rg + scale_y_sqrt()}
-            if(root_scale == "log"){rg <- rg + scale_y_log10()}
+            if(root_scale == "sqrt"){rg <- rg + 
+              scale_y_sqrt() +
+              labs(title = "Rootogram (square root scale)",
+                   x = "Posteriors",
+                   y = "Count (square root)")}
+            if(root_scale == "log"){rg <- rg + 
+              scale_y_log10() + 
+              labs(title = "Rootogram (log scale)",
+                   x = "Posteriors",
+                   y = "Count (log)")}
             
             if(!is.null(subplot)){
               return(list(rg, np)[[subplot[1]]])
