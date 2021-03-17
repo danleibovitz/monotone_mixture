@@ -1,9 +1,6 @@
 
 
 # ## Wishlist:
-# - somehow pass design matrix names from flexmix() call back to the construction of monoreg() so that
-# names can be interpreted as indices. Perhaps, override "FLXgetModelMatrix" method and add names(design_matrix)
-# slot? 
 # flexmix formula as y~x|g where g is the grouping variable, but what about a mixed-model component formula?
 # - allow factors for non-monotone components of part_fit, and disallow factors for monotone components
 # - mono_reg cannot accept ANY na values...
@@ -11,7 +8,7 @@
 # construction. Plotting should (automatically?) include CIs
 
 
-source("monotone_driver/part_fit.R")
+# source("monotone_driver/part_fit.R")
 
 
 # allow slots defined for numeric to accept NULL

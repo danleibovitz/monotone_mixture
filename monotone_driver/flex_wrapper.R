@@ -248,7 +248,9 @@ setMethod('plot',  signature(x="flexmix", y="missing"),
           }          
 )
             
-            
+# TODO include in plot method for monoreg flexmix objects a forest plot of coefficients and a forest plot of priors.
+# These plots should generate with or without bootstrap; without bootstrap, they should be point estimates (unless we can find a tractable parametric estimate of the coefficients without having to calculate some ridiculous covariance matrix with a kernel method)
+
 
 
 
@@ -264,5 +266,44 @@ setMethod('plot',  signature(x="flexmix", y="missing"),
 
             
             
+
+internal_boot <- function(fm, R=100){
+  
+  # Check that fm is a flexmix object
+  if(!is(fm, "flexmix")) stop("This method is for FlexMix objects of type: partially linear monotonic regression.")
+  
+  # Check that fm has at least one monotone obj
+  if(!"mon_obj" %in% names(attributes(fm@components[[1]][[1]]))) stop("This method is for FlexMix objects of type: partially linear monotonic regression.")
+  
+  Y <- fm@model[[1]]@y # store independent data
+  dat <- fm@model[[1]]@x # store dependent data
+  if("(Intercept)" %in% colnames(fm@model[[1]]@x)){
+    x <- x[, colnames(m3@model[[1]]@x) %in% "(Intercept)"] # remove intercept
+  }
+  
+  k <- length(m2@components) # Store the number of components
+  coefs <- rep(list(),k)
+  sigmas <- matrix(ncol = k, nrow = R)
+  mon_fits <- rep(list(rep(NA, R)),k)
+  
+  for(i in 1:k){ # populate each parameter
+    iter <- 1
+    while(iter < R ){
+      # TODO give part_fit an optional formula argument
+      # TODO give part_fit a starting coef and g() argument
+      current <- part_fit(formula = fm@model[[1]]@fullformula, start = fm@components[[i]][[1]]) 
+      
+      coefs[[i]][[iter]] <- current$coef
+      sigmas[iter, i] <- current$sigma
+      mon_fits[[i]][[iter]] <-current$fitted_pava
+      
+      # assign 
+      iter <- iter + 1
+    }
+    
+  }
+  
+  
+}
             
             

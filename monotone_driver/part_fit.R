@@ -198,6 +198,12 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
   # throw error if the number of indices exceeds columns of x
   if(length(c(inc_ind, dec_ind)) > ncol(x)) stop("Number of proposed monotonic relationships exceeds columns of x.")
   
+  # If there is an intercept but no other linear effects, stop
+  if((length(c(inc_ind, dec_ind))+1) == ncol(x) & "(Intercept)" %in% colnames(x)){
+    stop("For identifiability purposes, you cannot build a part_fit with only an intercept as a linear component.")
+  }
+
+  
   # TODO get names of monotone components for plotting
   # if(is.null(c(mono_inc_names, mon_dec_names))){
   #   # set names according to monotone indices. First increasing indices, then decreasing indices
@@ -225,6 +231,7 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
     # TODO sigma is the sqrt of __ divided by (nrow(x) - model$rank). For single monoreg, rank is 1...
     # ... but update when implementing CPAV
     # TODO ask matthias : rank of input matrix? or model matrix? different, depending on dummy coding, etc.
+    # TODO from lm: sigma = sqrt( (sum(weights * r^2)) / rdf);  r = residuals/sqrt(w) (why?); rdf = sum(w!=0) - rank.
     mod$sigma <- sqrt(sum(wates * (resids)^2 /
                                      mean(wates))/ (nrow(x)-qr(x)$rank))
     mod$df <- ncol(x)+1
@@ -252,7 +259,7 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
     delta <- 10
     # iterate between pava and linear model
     # TODO set while loop condition(s). Get appropriate measure of coefficient change
-    while(delta > 1e-12 & iter < maxiter){
+    while(delta > 1e-6 & iter < maxiter){ # works well enough with delta > 1e-12. Trying 1e-6
   
       yhat <- cpav(x_mat = as.matrix(x[wates != 0,]), y = (y[wates != 0] - (as.matrix(x[wates != 0,-c(inc_ind, dec_ind)]) %*% betas)), 
                    weights = wates[wates != 0], inc_index = inc_ind, dec_index = dec_ind)

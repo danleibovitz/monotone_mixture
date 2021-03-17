@@ -1,4 +1,9 @@
-
+# Wishlist
+# - For cox_reg model, include "+ cluster(id)" option in formula? I imagine this would allow soft groupings (correlation) 
+# of ids within component models of the mixture, whereas what we really want is the "| id" grouping of flexmix, 
+# since a single id should not be able to belong to multiple clusters. That said, perhaps a "cluster(family)" argument
+# might make sense, when, e.g., members of a family can belong to distinct clusters, but members of the same family within
+# a cluster should have their family status incorporated in the model estimate
 
 # allow slots defined for numeric to accept NULL
 setClassUnion("numericOrNULL",members=c("numeric", "NULL"))
@@ -7,28 +12,36 @@ setClassUnion("numericOrNULL",members=c("numeric", "NULL"))
 setClass(
   "FLX_Cox_component",
   contains="FLXcomponent",
-  # allow mon_index to take either numeric or NULL
   # TODO what slots does Cox_component need?
-  slots=c(mon_inc_index="numericOrNULL", mon_dec_index="numericOrNULL")
+  # TODO take either start/stop, or time, but not both
+  slots=c(start="numericOrNULL", 
+          stop="numericOrNULL", 
+          time="numericOrNULL",
+          status="numericOrNULL")
 ) 
 
 # Define FLXM_Cox
 setClass("FLXM_Cox",
          contains = "FLXM",
          # TODO what slots does FLXM_Cox need?
-         slots = c(start="numericOrNULL", stop="numericOrNULL", status="numericOrNULL"))
+         # TODO take either start/stop, or time, but not both
+         slots = c(start="numericOrNULL", 
+                   stop="numericOrNULL", 
+                   time="numericOrNULL",
+                   status="numericOrNULL"))
 
 
 # definition of monotone regression model.
 
 # TODO include OFFSET as optional argument?
-cox_reg <- function (formula = .~., start=NULL, stop=NULL, status=NULL) {
+cox_reg <- function (formula = .~., start=NULL, stop=NULL, time=NULL, status=NULL) {
   
   retval <- new("FLXM_Cox", weighted = TRUE,
                 formula = formula,
                 name = "Cox PH regression",
                 start= start,
                 stop= stop,
+                time= time,
                 status= status) 
   
   # @defineComponent: Expression or function constructing the object of class FLXcomponent
@@ -39,6 +52,10 @@ cox_reg <- function (formula = .~., start=NULL, stop=NULL, status=NULL) {
     # @logLik: A function(x,y) returning the log-likelihood for observations in matrices x and y
     logLik <- function(x, y) { 
       dnorm(y, mean=predict(x, ...), sd=fit$sigma, log=TRUE)
+      
+      newfit <- coxph(retval@formula, init = fit$coefficients, control=coxph.control(iter.max=0), 
+                     data = data.frame(x,y))
+      logLik(newfit)
     }
     # @predict: A function(x) predicting y given x. 
     # TODO x must be partitioned into linear and monotone covars
