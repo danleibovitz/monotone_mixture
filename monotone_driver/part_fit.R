@@ -128,8 +128,9 @@ get_pred <- function(mr_obj, xvals){
 # TODO max_iter must be passed through M_driver just like mon_inc_index, or 
 # else user will not be able to specify the max_iter param
 part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL, max_iter=NULL, 
-                     component = NULL, na.rm=T, mono_inc_names = NULL, mon_dec_names = NULL, ...){
+                     component = NULL, na.rm=T, mon_inc_names = NULL, mon_dec_names = NULL, start_fit = NULL, ...){
 
+  
   # TODO cast y and wates to matrices ?
   # TODO correct behaviour for if x is ONLY a vector
   x <- as.matrix(x)
@@ -141,7 +142,7 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
   if(T){ # for now, there is no alternative to na.rm=T.  All incomplete cases are removed.
     cc <- complete.cases(y) & complete.cases(x) & complete.cases(wates)
     y <- y[cc]
-    x <- x[cc,]
+    x <- x[cc,, drop=FALSE]
     wates <- wates[cc]
     cc <- NULL
   }
@@ -158,19 +159,19 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
     dec_ind <- component$mon_dec_index
   }
   else{
-    # assume that monotone variable is first column in x and increasing, unless specified otherwise
-    if(!is.null(mon_inc_index)){
+    
+    if(is.null(mon_inc_index) & is.null(mon_dec_index) & is.null(mon_inc_names) & is.null(mon_dec_names)){
+      stop("Some monotone index or name must be specified")
+    }
+    if(!is.null(mon_inc_names)){ # add names to index list
+      mon_inc_index <- unique(c(mon_inc_index, which(colnames(x) %in% mon_inc_names)))
+    }
+    if(!is.null(mon_dec_names)){
+      mon_dec_index <- unique(c(mon_dec_index, which(colnames(x) %in% mon_dec_names)))
+    }
+    # transfer inc_names to inc_index
       inc_ind <- mon_inc_index
-    } 
-    else{
-      inc_ind <- 1
-    }
-    if(!is.null(mon_dec_index)){
       dec_ind <- mon_dec_index
-    } 
-    else{
-      dec_ind <- NULL
-    }
   }
  
   # throw warning if there are duplicates in inc_ind or dec_ind, and then remove
@@ -203,9 +204,33 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
     stop("For identifiability purposes, you cannot build a part_fit with only an intercept as a linear component.")
   }
 
+  # If start_fit is specified, make sure it has only part_fit elements with the appropriate dimensions
+  if(!is.null(start_fit)){
+    
+    if(!is(start_fit, "list")) stop("start_fit must be a list of part_fit attributes")
+    if("coef" %in% names(start_fit)){
+      if(length(start_fit$coef) != (dim(x)[2] - length(c(inc_ind, dec_ind))) ){
+        stop("Not the right number of coefficients in starting values")
+      }
+      if(!all(names(start_fit$coef) %in% colnames(x)[-c(inc_ind, dec_ind)]) ){
+        stop("Some coefficient(s) in starting values have incorrect names")
+      }
+      if(!all(colnames(x)[-c(inc_ind, dec_ind)] %in% names(start_fit$coef)) ){
+        stop("Some coefficient(s) in starting values are missing")
+      }
+      if(!all(names(start_fit$coef) == colnames(x)[-c(inc_ind, dec_ind)])){
+        start_fit$coef <- start_fit$coef[match(colnames(x)[-c(inc_ind, dec_ind)],start_fit$coef)]
+      }
+    }
+    # TODO use starting mon_obj
+    # if(mon_obj %in% names(start_fit)){
+    #   
+    # }
+  }
+  
   
   # TODO get names of monotone components for plotting
-  # if(is.null(c(mono_inc_names, mon_dec_names))){
+  # if(is.null(c(mon_inc_names, mon_dec_names))){
   #   # set names according to monotone indices. First increasing indices, then decreasing indices
   # }
   
@@ -222,7 +247,7 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
     # may have mon_inc_index and mon_dec_index attributes
     mod <- list(coef = NULL, fitted_pava = NULL, sigma = NULL, df = NULL,
                 mon_inc_index = NULL, mon_dec_index = NULL, iterations = NULL, 
-                mono_inc_names = NULL, mon_dec_names = NULL)
+                mon_inc_names = NULL, mon_dec_names = NULL)
   
     mod$coef <- NULL
     mod$fitted_pava <- yhat
@@ -230,8 +255,6 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
     mod$mon_dec_index <- dec_ind
     # TODO sigma is the sqrt of __ divided by (nrow(x) - model$rank). For single monoreg, rank is 1...
     # ... but update when implementing CPAV
-    # TODO ask matthias : rank of input matrix? or model matrix? different, depending on dummy coding, etc.
-    # TODO from lm: sigma = sqrt( (sum(weights * r^2)) / rdf);  r = residuals/sqrt(w) (why?); rdf = sum(w!=0) - rank.
     mod$sigma <- sqrt(sum(wates * (resids)^2 /
                                      mean(wates))/ (nrow(x)-qr(x)$rank))
     mod$df <- ncol(x)+1
@@ -241,9 +264,14 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
     return(mod)
   }
   else{
-    # for starting values, fit a regular lm
-    fit <- lm.wfit(x=x, y=y, w=wates)
-    betas <- coef(fit)[-c(inc_ind, dec_ind)]
+    # for starting values, fit a regular lm or use starting values
+    if(!is.null(start_fit) && "coef" %in% names(start_fit)){
+      betas <- start_fit$coef
+    }
+    else{
+      fit <- lm.wfit(x=x, y=y, w=wates)
+      betas <- coef(fit)[-c(inc_ind, dec_ind)]
+    }
   
     # set maximum iterations for convergence
     if(!is.null(max_iter) & !is.list(max_iter)){
@@ -288,7 +316,7 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
   # may have mon_inc_index and mon_dec_index attributes
   mod <- list(coef = NULL, fitted_pava = NULL, sigma = NULL, df = NULL,
               mon_inc_index = NULL, mon_dec_index = NULL, iterations = NULL, 
-              mono_inc_names = NULL, mon_dec_names = NULL)
+              mon_inc_names = NULL, mon_dec_names = NULL)
   
   mod$coef <- betas
   mod$fitted_pava <- yhat
