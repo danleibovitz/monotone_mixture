@@ -78,6 +78,7 @@ mono_reg <- function (formula = .~., mon_inc_names = NULL,
                   # @predict: A function(x) predicting y given x. 
                   # TODO x must be partitioned into linear and monotone covars
                   predict <- function(x) {
+                    x <- as.matrix(x)
                     inc_ind <- fit$mon_inc_index
                     dec_ind <- fit$mon_dec_index
                     

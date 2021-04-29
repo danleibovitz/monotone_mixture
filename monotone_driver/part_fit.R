@@ -70,7 +70,7 @@ cpav <- function(x_mat, y, weights, inc_index=NULL, dec_index=NULL, max_iters_cp
       max_iters_cpav <- 100
     }
     if(is.null(max_delta_cpav)){
-      max_delta_cpav <- 0.0000001
+      max_delta_cpav <- 0.00001
     }
     
     while(abs(delta) > max_delta_cpav & iters < max_iters_cpav){
@@ -112,13 +112,21 @@ get_pred <- function(mr_obj, xvals){
   # TODO this stop is not catching badly formed arguments...
   if(dim(mr_obj)[2] != dim(xvals)[2]) stop("get_pred() must take an X-matrix with as many columns
                                             as monoreg() objects")
-  
-  apply(sapply(1:ncol(xvals), function(j)
+  if(dim(xvals)[1] == 1){ # if xvals is a single observation
+    sapply(1:ncol(xvals), function(j)
+      mr_obj[,j]$yf[sapply(xvals[,j], function(z)
+        ifelse( z < mr_obj[,j]$x[1], 1,
+                ifelse(z >= tail(mr_obj[,j]$x, n=1), length(mr_obj[,j]$x), 
+                       which.min(mr_obj[,j]$x <= z)-1 )))])
+  }
+  else{
+    apply(sapply(1:ncol(xvals), function(j)
          mr_obj[,j]$yf[sapply(xvals[,j], function(z)
            ifelse( z < mr_obj[,j]$x[1], 1,
             ifelse(z >= tail(mr_obj[,j]$x, n=1), length(mr_obj[,j]$x), 
                    which.min(mr_obj[,j]$x <= z)-1 )))]
          ), 1, function(h) sum(h))
+    }
 
 }
 
@@ -279,7 +287,7 @@ part_fit <- function(x, y, wates = NULL, mon_inc_index=NULL, mon_dec_index=NULL,
       maxiter <- max_iter
     }
     else{ 
-      maxiter <- 10000
+      maxiter <- 200
     }
       
     # set while loop initial values

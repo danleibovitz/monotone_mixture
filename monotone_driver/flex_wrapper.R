@@ -14,6 +14,8 @@ library(RColorBrewer)
 library(zoo)
 library(lemon)
 library(knitr)
+library(LaplacesDemon)
+library(LICORS)
 
 # Multiple plot function
 #
@@ -349,26 +351,32 @@ setMethod('plot',  signature(x="flexmix", y="missing"),
 
 
 # TODO write predict method for monoreg flexmix objects
-# setMethod('predict',  signature(x="flexmix", y="missing"),
-#           function(fm, x, ...) {
-#             
-#             
-#             if(is(fm@model[[1]], "FLXM_monoreg")){ # check that this is a mixture of part_fits
-#               if(x doesnt have Y element){
-#                 produce conditional marginal distribution, conditioned on X=x
-#               }
-#               if(x does have Y element){
-#                 produce conditional posterior, i.e., vector of posterior probabilities
-#                 if(!all(colnames(x) %in% colnames(m3@model[[1]]@x))){# check that names of x match names of original model
-#                 stop("The covariate vector to predict from must have names in the original model dataset")}
-#                 posteriors <- get_posterior_mean()
-#                 
-#               }
-#             }
-#             else{ stop("This method is only for FLXM_monoreg objects")}
-# 
-# 
-#           })
+predict_marginal <- function(fm, dat){
+  # this function is not written defensively. It expects properly formatted inputs. You should probably not use it. I apologize for laziness...
+  # return a density for each observation. should density be a matrix or function? if a matrix, must specify the granularity of the range
+  
+  # if(dim(dat)[1] > 1 && observations dont belong to same grouping){
+  #   # class(mod6@group)
+  #   stop("run predict_marginal for one grouping at a time.")
+  # }
+  
+  if(all.vars(fm@formula)[1] %in% colnames(dat)){
+    # return ONE posterior vector for entire group
+    retval <- apply()
+  }
+  
+  if(!all.vars(fm@formula)[1] %in% colnames(dat)){    
+    # return a marginal distribution FOR EACH observation in the form of a vector of priors, 
+    # a vector of mus, and a vector of sigmas
+    sigs <- sapply(fm@components, function(i) i[[1]]@parameters$sigma)
+    retval <- lapply(1:dim(dat)[1], function(x) {
+      list(prior = normalize(fm@prior), mus = sapply(fm@components, function(j) j[[1]]@predict(dat[x,])), # get predicted value at row x for each component 
+           sigmas = sigs)
+    })
+  }
+  
+  return(retval)
+}
 
             
             
